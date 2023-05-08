@@ -1,25 +1,33 @@
-# Makefile for building and packaging binaries
+PROJECT_NAME := cyber
+VERSION := v1.0.0
 
-APP_NAME = cyber
-VERSION = v1.0.0
+OS := windows darwin linux
+ARCH := amd64 arm64
 
-.PHONY: build-windows build-darwin build-linux package clean
+.PHONY: all
+all: $(OS)
 
-all: build-windows build-darwin build-linux package
+$(OS): %: %-amd64 %-arm64
 
-build-windows:
-	GOOS=windows GOARCH=amd64 go build -o build/$(APP_NAME)-windows-amd64.exe
+$(OS:%=%-amd64): %-amd64: build
+	@echo "Packaging $* amd64..."
+	mkdir -p build/$*/amd64
+	cp build/$(PROJECT_NAME)-$*-amd64 build/$*/amd64/
+	tar czvf build/$(PROJECT_NAME)-$(VERSION)-$*-amd64.tar.gz -C build/$*/amd64 $(PROJECT_NAME)-$*-amd64
 
-build-darwin:
-	GOOS=darwin GOARCH=amd64 go build -o build/$(APP_NAME)-darwin-amd64
+$(OS:%=%-arm64): %-arm64: build
+	@echo "Packaging $* arm64..."
+	mkdir -p build/$*/arm64
+	cp build/$(PROJECT_NAME)-$*-arm64 build/$*/arm64/
+	tar czvf build/$(PROJECT_NAME)-$(VERSION)-$*-arm64.tar.gz -C build/$*/arm64 $(PROJECT_NAME)-$*-arm64
 
-build-linux:
-	GOOS=linux GOARCH=amd64 go build -o build/$(APP_NAME)-linux-amd64
+.PHONY: build
+build:
+	@echo "Building binaries..."
+	$(foreach os, $(OS), $(foreach arch, $(ARCH), \
+		GOOS=$(os) GOARCH=$(arch) go build -o build/$(PROJECT_NAME)-$(os)-$(arch) -ldflags="-s -w" ; \
+	))
 
-package:
-	cd build && tar czvf $(APP_NAME)-$(VERSION)-windows-amd64.tar.gz $(APP_NAME)-windows-amd64.exe
-	cd build && tar czvf $(APP_NAME)-$(VERSION)-darwin-amd64.tar.gz $(APP_NAME)-darwin-amd64
-	cd build && tar czvf $(APP_NAME)-$(VERSION)-linux-amd64.tar.gz $(APP_NAME)-linux-amd64
-
+.PHONY: clean
 clean:
-	rm -rf build/*
+	rm -rf build
