@@ -21,6 +21,7 @@ var infoCmd = &cobra.Command{
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		var c = api.NewClient()
+		fmt.Println("Getting user information...")
 		info, err := c.GetUserInfo()
 		if err != nil {
 			util.PrintlnExit(err.Error())

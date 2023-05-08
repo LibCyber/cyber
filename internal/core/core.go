@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
-	"github.com/shirou/gopsutil/v3/process"
 	"gopkg.in/yaml.v3"
 	"io"
 	"net"
@@ -21,7 +20,6 @@ import (
 )
 
 func Download() error {
-	// 从 download.libcyber.xyz/clients/cli/V1.0.0/cyber-v[version]-[GOOS]-[GOARCH].zip 下载
 	filename := fmt.Sprintf("cyber-core-%s-%s-%s.zip", "v1.0.0", runtime.GOOS, runtime.GOARCH)
 	resp, err := http.Get(fmt.Sprintf("https://download.libcyber.xyz/clients/cli/%s", filename))
 	if err != nil {
@@ -238,7 +236,7 @@ func setPortInConfig(configPath string, port, socksPort int, apiPort int) error 
 }
 
 func Start() error {
-	exist, pid, err := checkUserProcess("cyber-core")
+	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -334,7 +332,7 @@ func killProcessesByName(name string) error {
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("taskkill", "/IM", "*"+name+"*", "/F", "/T")
+		cmd = exec.Command("taskkill", "/IM", name, "/F", "/T")
 	case "linux", "darwin", "freebsd":
 		// 获取当前用户的用户ID
 		currentUser, err := user.Current()
@@ -378,8 +376,28 @@ func killProcessesByName(name string) error {
 	return nil
 }
 
+func killProcessesByPid(pid int) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
+	case "linux", "darwin", "freebsd":
+		cmd = exec.Command("kill", strconv.Itoa(pid))
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Stop() error {
-	exist, _, err := checkUserProcess("cyber-core")
+	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -388,16 +406,20 @@ func Stop() error {
 		return fmt.Errorf("cyber-core is not running")
 	}
 
-	err = killProcessesByName("cyber-core")
+	//err = killProcessesByName(processName)
+	//if err != nil {
+	//	return err
+	//}
+	err = killProcessesByPid(pid)
 	if err != nil {
-		return err
+		return fmt.Errorf("kill process error: %s", err.Error())
 	}
 
 	return nil
 }
 
 func Status() error {
-	exist, pid, err := checkUserProcess("cyber-core")
+	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -460,47 +482,6 @@ func getAvailablePort(maskPorts []int) int {
 	return -1
 }
 
-func checkUserProcess(processName string) (bool, int, error) {
-	// 获取当前用户
-	currentUser, err := user.Current()
-	if err != nil {
-		return false, 0, err
-	}
-
-	// 将当前用户的UID转换为整数
-	uid, err := strconv.Atoi(currentUser.Uid)
-	if err != nil {
-		return false, 0, err
-	}
-
-	// 获取系统中所有运行中的进程
-	processes, err := process.Processes()
-	if err != nil {
-		return false, 0, err
-	}
-
-	// 遍历所有进程，检查进程名和用户ID
-	for _, p := range processes {
-		name, err := p.Name()
-		if err != nil {
-			continue
-		}
-
-		if name == processName {
-			uids, err := p.Uids()
-			if err != nil || len(uids) == 0 {
-				continue
-			}
-
-			if uids[0] == int32(uid) {
-				return true, int(p.Pid), nil
-			}
-		}
-	}
-
-	return false, 0, nil
-}
-
 type ConfigRestfulResponse struct {
 	Port           int           `json:"port"`
 	SocksPort      int           `json:"socks-port"`
@@ -558,7 +539,7 @@ func getSelector() (string, error) {
 }
 
 func ChangeNode(nodeName string) error {
-	exist, _, err := checkUserProcess("cyber-core")
+	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -613,7 +594,7 @@ func ChangeNode(nodeName string) error {
 }
 
 func ChangeMode(mode string) error {
-	exist, _, err := checkUserProcess("cyber-core")
+	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -657,7 +638,7 @@ type DelayTestResponse struct {
 }
 
 func BenchmarkNode() error {
-	exist, _, err := checkUserProcess("cyber-core")
+	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}
@@ -737,7 +718,7 @@ type ProxyRestfulResponse struct {
 }
 
 func ListNodes() error {
-	exist, _, err := checkUserProcess("cyber-core")
+	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
 		return fmt.Errorf("check user process error: %s", err.Error())
 	}

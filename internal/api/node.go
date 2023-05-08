@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/LibCyber/cyber/constant"
 	"github.com/LibCyber/cyber/pkg/clash"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -20,7 +21,7 @@ func (c *Client) DownloadNodes() error {
 	}
 
 	req, err := http.NewRequest("GET", "https://client-api.libcyber.net/api/client/v1/s/"+info.SubCode, nil)
-	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberDesktop(%s-%s)/1.0.0", runtime.GOOS, runtime.GOARCH))
+	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberCLI(%s-%s)/%s", runtime.GOOS, runtime.GOARCH, constant.APP_VERSION))
 	if err != nil {
 		return fmt.Errorf("error creating download nodes request: %v", err)
 	}

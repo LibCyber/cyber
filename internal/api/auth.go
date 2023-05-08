@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/LibCyber/cyber/constant"
 	"github.com/LibCyber/cyber/pkg/sysinfo"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -97,7 +98,7 @@ func (c *Client) Login(username string, password string) (string, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberCLI(%s-%s)/1.0.0", runtime.GOOS, runtime.GOARCH))
+	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberCLI(%s-%s)/%s", runtime.GOOS, runtime.GOARCH, constant.APP_VERSION))
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -230,7 +231,7 @@ func (c *Client) Logout() error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberCLI(%s-%s)/1.0.0", runtime.GOOS, runtime.GOARCH))
+	req.Header.Set("User-Agent", fmt.Sprintf("LibCyberCLI(%s-%s)/%s", runtime.GOOS, runtime.GOARCH, constant.APP_VERSION))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.AccessToken))
 
 	client := &http.Client{}
