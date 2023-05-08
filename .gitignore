@@ -23,6 +23,7 @@ go.work
 
 # output
 bin/
+build/
 
 # OS generated files
 .DS_Store

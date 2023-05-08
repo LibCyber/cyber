@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -318,9 +317,7 @@ func Start() error {
 	cmd.Stderr = errLogFile
 
 	// 将进程分离到新的进程组，以避免终端信号影响子进程
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	cmd.SysProcAttr = procAttrWithNewProcessGroup()
 
 	// 启动子进程
 	err = cmd.Start()
