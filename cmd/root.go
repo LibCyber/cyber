@@ -20,7 +20,7 @@ var rootCmd = &cobra.Command{
 	Short: "LibCyber CLI",
 	Long: `cyber is a command line client for LibCyber.
 
-TLDR, only 3 steps to liberate your cyber:
+TLDR, only 5 steps to liberate your cyber:
   cyber login                1. Login to LibCyber
   cyber core download        2. Download cyber-core from LibCyber
   cyber node download        3. Download nodes from LibCyber
