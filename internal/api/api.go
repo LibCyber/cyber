@@ -1,11 +1,11 @@
 package api
 
 import (
-	"LibCyber/cyber/pkg/sysinfo"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/LibCyber/cyber/pkg/sysinfo"
 	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"

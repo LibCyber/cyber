@@ -1,8 +1,8 @@
 package api
 
 import (
-	"LibCyber/cyber/pkg/clash"
 	"fmt"
+	"github.com/LibCyber/cyber/pkg/clash"
 	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"

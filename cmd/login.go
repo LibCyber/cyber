@@ -4,9 +4,9 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package cmd
 
 import (
-	"LibCyber/cyber/internal/api"
-	"LibCyber/cyber/pkg/util"
 	"fmt"
+	"github.com/LibCyber/cyber/internal/api"
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 

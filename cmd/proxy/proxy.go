@@ -4,7 +4,7 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package proxy
 
 import (
-	"LibCyber/cyber/cmd/proxy/unset"
+	"github.com/LibCyber/cyber/cmd/proxy/unset"
 	"github.com/spf13/cobra"
 )
 

@@ -1,4 +1,4 @@
-module LibCyber/cyber
+module github.com/LibCyber/cyber
 
 go 1.19
 

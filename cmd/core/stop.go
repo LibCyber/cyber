@@ -4,8 +4,8 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package core
 
 import (
-	"LibCyber/cyber/internal/core"
-	"LibCyber/cyber/pkg/util"
+	"github.com/LibCyber/cyber/internal/core"
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 

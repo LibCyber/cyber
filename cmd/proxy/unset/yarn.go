@@ -4,8 +4,8 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package unset
 
 import (
-	"LibCyber/cyber/pkg/util"
 	"fmt"
+	"github.com/LibCyber/cyber/pkg/util"
 	"os/exec"
 
 	"github.com/spf13/cobra"

@@ -4,11 +4,11 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package cmd
 
 import (
-	"LibCyber/cyber/cmd/core"
-	"LibCyber/cyber/cmd/mode"
-	"LibCyber/cyber/cmd/node"
-	"LibCyber/cyber/cmd/proxy"
-	"LibCyber/cyber/cmd/tunnel"
+	"github.com/LibCyber/cyber/cmd/core"
+	"github.com/LibCyber/cyber/cmd/mode"
+	"github.com/LibCyber/cyber/cmd/node"
+	"github.com/LibCyber/cyber/cmd/proxy"
+	"github.com/LibCyber/cyber/cmd/tunnel"
 	"os"
 
 	"github.com/spf13/cobra"
