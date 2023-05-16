@@ -18,7 +18,6 @@ var showCmd = &cobra.Command{
 	Long: `Show cyber routing mode.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("show called")
 		configs, err := core.GetConfigs()
 		if err != nil {
 			util.PrintlnExit(err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/LibCyber/cyber/constant"
 	"github.com/LibCyber/cyber/pkg/sysinfo"
@@ -89,12 +90,12 @@ func (c *Client) Login(username string, password string) (string, error) {
 
 	jsonData, err := json.Marshal(loginRequest)
 	if err != nil {
-		return "", fmt.Errorf("error marshalling login request: %v", err)
+		return "", fmt.Errorf("marshalling login request: %v", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("error creating login request: %v", err)
+		return "", fmt.Errorf("creating login request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -103,14 +104,14 @@ func (c *Client) Login(username string, password string) (string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error do login request: %v", err)
+		return "", errors.New("do request failed")
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("error reading login response: %v", err)
+		return "", fmt.Errorf("reading login response: %v", err)
 	}
 
 	//fmt.Println("login response: ", string(body))
@@ -120,25 +121,25 @@ func (c *Client) Login(username string, password string) (string, error) {
 		var errorResponse ErrorResponse
 		err = json.Unmarshal(body, &errorResponse)
 		if err != nil {
-			return "", fmt.Errorf("error decoding login response: %v", err)
+			return "", fmt.Errorf("decoding login response: %v", err)
 		}
 
-		return "", fmt.Errorf("login failed: %v", errorResponse.ErrorMessage)
+		return "", fmt.Errorf("unmarshal login response: %v", errorResponse.ErrorMessage)
 	}
 
 	if !loginResponse.Success {
 		var errorResponse ErrorResponse
 		err = json.Unmarshal(body, &errorResponse)
 		if err != nil {
-			return "", fmt.Errorf("error decoding login response: %v, %v", err, loginResponse.Message)
+			return "", fmt.Errorf("decoding login response: %v, %v", err, loginResponse.Message)
 		}
 
-		return "", fmt.Errorf("login failed: %v", errorResponse.ErrorMessage)
+		return "", fmt.Errorf("abnormal login response: %v", errorResponse.ErrorMessage)
 	}
 
 	err = c.saveCredential(loginResponse.AccessToken)
 	if err != nil {
-		return "", fmt.Errorf("error saving credential: %v", err)
+		return "", fmt.Errorf("saving credential: %v", err)
 	}
 
 	return loginResponse.AccessToken, nil
@@ -148,7 +149,7 @@ func (c *Client) saveCredential(token string) error {
 	// 保存到家目录下的 .cyber/account/config.yaml 中的 accessToken 字段，注意保留文件原来的权限，如果文件不存在，则创建
 	usr, err := user.Current()
 	if err != nil {
-		fmt.Println("Error getting current user:", err)
+		fmt.Println("Getting current user:", err)
 		os.Exit(1)
 	}
 
@@ -159,29 +160,29 @@ func (c *Client) saveCredential(token string) error {
 		// 文件不存在，创建
 		err = os.MkdirAll(filepath.Dir(configFilePath), 0755)
 		if err != nil {
-			return fmt.Errorf("error creating config file directory: %v", err)
+			return fmt.Errorf("creating config file directory: %v", err)
 		}
 		_, err = os.Create(configFilePath)
 		if err != nil {
-			return fmt.Errorf("error creating config file: %v", err)
+			return fmt.Errorf("creating config file: %v", err)
 		}
 	}
 	// 重新获取文件权限
 	fileInfo, err := os.Stat(configFilePath)
 	if err != nil {
-		return fmt.Errorf("error getting config file info: %v", err)
+		return fmt.Errorf("getting config file info: %v", err)
 	}
 	fileMode := fileInfo.Mode()
 
 	configData, err := os.ReadFile(configFilePath)
 	if err != nil {
-		return fmt.Errorf("error reading config file: %v", err)
+		return fmt.Errorf("reading config file: %v", err)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(configData, &config)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling config file: %v", err)
+		return fmt.Errorf("unmarshalling config file: %v", err)
 	}
 
 	config.AccessToken = base64.StdEncoding.EncodeToString([]byte(token))
@@ -198,7 +199,7 @@ func (c *Client) removeCredential() error {
 	// 删除家目录下的 .cyber/ 目录
 	usr, err := user.Current()
 	if err != nil {
-		return fmt.Errorf("error getting current user: %v", err)
+		return fmt.Errorf("getting current user: %v", err)
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber")
@@ -210,7 +211,7 @@ func (c *Client) removeCredential() error {
 
 	err = os.RemoveAll(configFilePath)
 	if err != nil {
-		return fmt.Errorf("error removing config file directory: %v", err)
+		return fmt.Errorf("removing config file directory: %v", err)
 	}
 
 	return nil
@@ -227,7 +228,7 @@ func (c *Client) Logout() error {
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		return fmt.Errorf("error creating logout request: %v", err)
+		return fmt.Errorf("creating logout request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -237,14 +238,14 @@ func (c *Client) Logout() error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error do logout request: %v", err)
+		return fmt.Errorf("do request: %v", err)
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("error reading logout response: %v", err)
+		return fmt.Errorf("reading logout response: %v", err)
 	}
 
 	var logoutResponse LogoutResponse
@@ -253,25 +254,25 @@ func (c *Client) Logout() error {
 		var errorResponse ErrorResponse
 		err = json.Unmarshal(body, &errorResponse)
 		if err != nil {
-			return fmt.Errorf("error decoding logout response: %v", err)
+			return fmt.Errorf("decoding logout response: %v", err)
 		}
 
-		return fmt.Errorf("logout failed: %v", errorResponse.ErrorMessage)
+		return fmt.Errorf("unmarshal logout response: %v", errorResponse.ErrorMessage)
 	}
 
 	if !logoutResponse.Success {
 		var errorResponse ErrorResponse
 		err = json.Unmarshal(body, &errorResponse)
 		if err != nil {
-			return fmt.Errorf("error decoding logout response: %v, %v", err, logoutResponse.Message)
+			return fmt.Errorf("decoding logout response: %v, %v", err, logoutResponse.Message)
 		}
 
-		return fmt.Errorf("logout failed: %v", errorResponse.ErrorMessage)
+		return fmt.Errorf("abnormal logout response: %v", errorResponse.ErrorMessage)
 	}
 
 	err = c.removeCredential()
 	if err != nil {
-		return fmt.Errorf("error removing credential: %v", err)
+		return fmt.Errorf("removing credential: %v", err)
 	}
 
 	return nil

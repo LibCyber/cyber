@@ -27,7 +27,7 @@ where <mode> is one of the following:
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
+		if len(args) == 0 {
 			util.PrintlnExit("Please specify mode, either 'rule' or 'global'")
 		}
 

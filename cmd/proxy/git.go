@@ -27,7 +27,7 @@ var gitCmd = &cobra.Command{
 		setupGitProxy("http", fmt.Sprintf("http://127.0.0.1:%d", httpPort))
 		setupGitProxy("https", fmt.Sprintf("http://127.0.0.1:%d", httpPort))
 
-		fmt.Println("git proxy setup")
+		fmt.Println("Git proxy setup successfully")
 	},
 }
 
@@ -49,7 +49,7 @@ func setupGitProxy(scheme, proxyUrl string) {
 	cmd := exec.Command("git", "config", "--global", fmt.Sprintf("%s.proxy", scheme), proxyUrl)
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("Error setting %s proxy: %v\n", scheme, err)
+		fmt.Printf("Setting %s proxy: %v\n", scheme, err)
 		return
 	}
 	fmt.Printf("Successfully set %s proxy to %s\n", scheme, proxyUrl)

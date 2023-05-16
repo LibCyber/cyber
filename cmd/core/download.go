@@ -20,7 +20,7 @@ var downloadCmd = &cobra.Command{
 		fmt.Println("Downloading cyber core...")
 		err := core.Download()
 		if err != nil {
-			util.PrintlnExit(err.Error())
+			util.PrintlnExit(err)
 		}
 		fmt.Println("Download cyber core successfully!")
 	},

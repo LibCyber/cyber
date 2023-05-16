@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"fmt"
+	"github.com/LibCyber/cyber/internal/app"
 	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/util"
 
@@ -22,7 +23,11 @@ var infoCmd = &cobra.Command{
 		if err != nil {
 			util.PrintlnExit(err)
 		}
-		fmt.Printf("http-port: %d\nsocks-port: %d\n", httpPort, socksPort)
+		if app.Language() == "zh" {
+			fmt.Printf("当前 cyber-core 正在本机127.0.0.1，端口 %d 监听 http 代理，以及在端口 %d 监听 socks5 代理。\n", httpPort, socksPort)
+		} else {
+			fmt.Printf("The cyber-core is listening http proxy on port %d and socks5 proxy on port %d.\n", httpPort, socksPort)
+		}
 	},
 }
 

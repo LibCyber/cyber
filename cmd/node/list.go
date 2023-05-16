@@ -18,7 +18,7 @@ var listCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := core.ListNodes()
 		if err != nil {
-			util.PrintlnExit(err.Error())
+			util.PrintlnExit(err)
 		}
 	},
 }

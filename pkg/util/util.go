@@ -7,5 +7,5 @@ import (
 
 func PrintlnExit(args ...interface{}) {
 	fmt.Println(args...)
-	os.Exit(0)
+	os.Exit(2)
 }

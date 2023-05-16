@@ -63,7 +63,7 @@ func setupPnpmProxy(scheme, proxyUrl string) error {
 	cmd := exec.Command("pnpm", "config", "set", proxyText, proxyUrl)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("error setting %s proxy: %s", scheme, err.Error())
+		return fmt.Errorf("setting %s proxy: %s", scheme, err.Error())
 	}
 
 	return nil

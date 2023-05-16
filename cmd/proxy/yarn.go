@@ -63,7 +63,7 @@ func setupYarnProxy(scheme, proxyUrl string) error {
 	cmd := exec.Command("yarn", "config", "set", proxyText, proxyUrl)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("error setting %s proxy: %s", scheme, err.Error())
+		return fmt.Errorf("setting %s proxy: %s", scheme, err.Error())
 	}
 
 	return nil

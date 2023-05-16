@@ -35,7 +35,7 @@ func extractLocalToken() string {
 	// 从家目录下的 .cyber/account/config.yaml 中读取 accessToken
 	usr, err := user.Current()
 	if err != nil {
-		fmt.Println("Error getting current user:", err)
+		fmt.Println("Getting current user:", err)
 		os.Exit(1)
 	}
 
@@ -86,12 +86,12 @@ func (c *Client) GetUserInfo() (UserProfile, error) {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return UserProfile{}, fmt.Errorf("error marshalling get user info request: %v", err)
+		return UserProfile{}, fmt.Errorf("marshalling get user info request: %v", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return UserProfile{}, fmt.Errorf("error creating get user info request: %v", err)
+		return UserProfile{}, fmt.Errorf("creating get user info request: %v", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
@@ -101,20 +101,20 @@ func (c *Client) GetUserInfo() (UserProfile, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return UserProfile{}, fmt.Errorf("error do get user info request: %v", err)
+		return UserProfile{}, fmt.Errorf("do get user info request: %v", err)
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return UserProfile{}, fmt.Errorf("error reading get user info response body: %v", err)
+		return UserProfile{}, fmt.Errorf("reading get user info response body: %v", err)
 	}
 
 	var userProfile UserProfile
 	err = json.Unmarshal(body, &userProfile)
 	if err != nil {
-		return UserProfile{}, fmt.Errorf("error unmarshalling get user info response body: %v", err)
+		return UserProfile{}, fmt.Errorf("unmarshalling get user info response body: %v", err)
 	}
 
 	return userProfile, nil

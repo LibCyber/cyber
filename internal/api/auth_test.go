@@ -18,7 +18,7 @@ func TestGetProductInfo(t *testing.T) {
 
 	cpuInfo, _ := cpu.Info()
 	if len(cpuInfo) == 0 {
-		fmt.Println("Error getting CPU info")
+		fmt.Println("Getting CPU info")
 		return
 	}
 	fmt.Println("Model: ", cpuInfo[0].ModelName)

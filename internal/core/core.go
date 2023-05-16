@@ -3,7 +3,10 @@ package core
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/LibCyber/cyber/internal/app"
+	"github.com/LibCyber/cyber/pkg/country"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -19,11 +22,19 @@ import (
 	"time"
 )
 
+var (
+	ErrNotRunning = fmt.Errorf("cyber-core is not running")
+)
+
+func IsNotRunning(err error) bool {
+	return errors.Is(err, ErrNotRunning)
+}
+
 func Download() error {
 	filename := fmt.Sprintf("cyber-core-%s-%s-%s.zip", "v1.0.0", runtime.GOOS, runtime.GOARCH)
 	resp, err := http.Get(fmt.Sprintf("https://download.libcyber.xyz/clients/cli/%s", filename))
 	if err != nil {
-		return fmt.Errorf("download core error: %s", err.Error())
+		return fmt.Errorf("download core: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
@@ -31,37 +42,37 @@ func Download() error {
 	// 检查是否有 ~/.cyber/core 目录，没有则创建
 	usr, err := user.Current()
 	if err != nil {
-		return fmt.Errorf("get current user error: %s", err.Error())
+		return fmt.Errorf("get current user: %s", err.Error())
 	}
 	corePath := filepath.Join(usr.HomeDir, ".cyber", "core")
 	if _, err = os.Stat(corePath); os.IsNotExist(err) {
 		err = os.MkdirAll(corePath, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("create core path error: %s", err.Error())
+			return fmt.Errorf("create core path: %s", err.Error())
 		}
 	}
 
 	// 将下载的文件写入到 ~/.cyber/core 目录下
 	coreFile, err := os.Create(filepath.Join(corePath, filename))
 	if err != nil {
-		return fmt.Errorf("create core file error: %s", err.Error())
+		return fmt.Errorf("create core file: %s", err.Error())
 	}
 
 	_, err = io.Copy(coreFile, resp.Body)
 	if err != nil {
-		return fmt.Errorf("write core file error: %s", err.Error())
+		return fmt.Errorf("write core file: %s", err.Error())
 	}
 
 	// 解压
 	err = unzip(filepath.Join(corePath, filename), corePath)
 	if err != nil {
-		return fmt.Errorf("extract core file error: %s", err.Error())
+		return fmt.Errorf("extract core file: %s", err.Error())
 	}
 
 	// 删除压缩包
 	err = os.Remove(filepath.Join(corePath, filename))
 	if err != nil {
-		return fmt.Errorf("remove core zip file error: %s", err.Error())
+		return fmt.Errorf("remove core zip file: %s", err.Error())
 	}
 
 	return nil
@@ -135,7 +146,7 @@ func extractFile(f *zip.File, destPath string) error {
 func GetProxyPort() (int, int, error) {
 	usr, err := user.Current()
 	if err != nil {
-		return 0, 0, fmt.Errorf("get current user error: %s", err.Error())
+		return 0, 0, fmt.Errorf("get current user: %s", err.Error())
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
@@ -182,12 +193,12 @@ func getPortInConfig(configPath string) (int, int, int, error) {
 	// 解析出端口号
 	_, apiPortStr, err := net.SplitHostPort(externalController.(string))
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("parse external-controller error: %s", err.Error())
+		return 0, 0, 0, fmt.Errorf("parse external-controller: %s", err.Error())
 	}
 
 	apiPort, err := strconv.Atoi(apiPortStr)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("convert api port error: %s", err.Error())
+		return 0, 0, 0, fmt.Errorf("convert api port: %s", err.Error())
 	}
 
 	return port.(int), socksPort.(int), apiPort, nil
@@ -214,7 +225,7 @@ func setPortInConfig(configPath string, port, socksPort int, apiPort int) error 
 
 	addr, _, err := net.SplitHostPort(config["external-controller"].(string))
 	if err != nil {
-		return fmt.Errorf("parse external-controller error: %s", err.Error())
+		return fmt.Errorf("parse external-controller: %s", err.Error())
 	}
 
 	config["external-controller"] = net.JoinHostPort(addr, strconv.Itoa(apiPort))
@@ -235,28 +246,33 @@ func setPortInConfig(configPath string, port, socksPort int, apiPort int) error 
 	return nil
 }
 
-func Start() error {
+func Start() (int, error) {
 	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return 0, fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if exist {
-		return fmt.Errorf("cyber-core is already running, pid: %d", pid)
+		return 0, fmt.Errorf("cyber-core is already running, pid: %d", pid)
 	}
 
 	usr, err := user.Current()
 	if err != nil {
-		return fmt.Errorf("get current user error: %s", err.Error())
+		return 0, fmt.Errorf("get current user: %s", err.Error())
 	}
 
 	corePath := filepath.Join(usr.HomeDir, ".cyber", "core")
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
 
+	// 检查cyber-core目录是否存在
+	if _, err = os.Stat(corePath); os.IsNotExist(err) {
+		return 0, fmt.Errorf("cyber-core is not installed, please install it first using `cyber core download`")
+	}
+
 	// 获取配置文件中的端口号
 	httpPort, socksPort, apiPort, err := getPortInConfig(filepath.Join(configFilePath))
 	if err != nil {
-		return fmt.Errorf("get port error: %s", err.Error())
+		return 0, fmt.Errorf("get port: %s", err.Error())
 	}
 
 	var changed bool
@@ -264,7 +280,7 @@ func Start() error {
 	if !checkPortAvailable(httpPort) {
 		httpPort = getAvailablePort([]int{httpPort, socksPort, apiPort})
 		if httpPort < 0 {
-			return fmt.Errorf("no available port for http proxy")
+			return 0, fmt.Errorf("no available port for http proxy")
 		}
 
 		changed = true
@@ -273,7 +289,7 @@ func Start() error {
 	if !checkPortAvailable(socksPort) {
 		socksPort = getAvailablePort([]int{httpPort, socksPort, apiPort})
 		if socksPort < 0 {
-			return fmt.Errorf("no available port for socks proxy")
+			return 0, fmt.Errorf("no available port for socks proxy")
 		}
 
 		changed = true
@@ -282,7 +298,7 @@ func Start() error {
 	if !checkPortAvailable(apiPort) {
 		apiPort = getAvailablePort([]int{httpPort, socksPort, apiPort})
 		if apiPort < 0 {
-			return fmt.Errorf("no available port for api")
+			return 0, fmt.Errorf("no available port for api")
 		}
 
 		changed = true
@@ -298,14 +314,14 @@ func Start() error {
 	// 创建日志文件，以覆写的方式打开
 	logFile, err := os.OpenFile(filepath.Join(corePath, "coreOut.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %v", err)
+		return 0, fmt.Errorf("failed to open log file: %v", err)
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer logFile.Close()
 
 	errLogFile, err := os.OpenFile(filepath.Join(corePath, "coreErr.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open error log file: %v", err)
+		return 0, fmt.Errorf("failed to open error log file: %v", err)
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer errLogFile.Close()
@@ -320,13 +336,13 @@ func Start() error {
 	// 启动子进程
 	err = cmd.Start()
 	if err != nil {
-		return fmt.Errorf("failed to start core: %v", err)
+		return 0, fmt.Errorf("failed to start core: %v", err)
 	}
 
-	fmt.Printf("Started background process with PID %d\n", cmd.Process.Pid)
-	return nil
+	return cmd.Process.Pid, nil
 }
 
+//goland:noinspection GoUnusedFunction
 func killProcessesByName(name string) error {
 	var cmd *exec.Cmd
 
@@ -399,11 +415,11 @@ func killProcessesByPid(pid int) error {
 func Stop() error {
 	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return ErrNotRunning
 	}
 
 	//err = killProcessesByName(processName)
@@ -412,24 +428,23 @@ func Stop() error {
 	//}
 	err = killProcessesByPid(pid)
 	if err != nil {
-		return fmt.Errorf("kill process error: %s", err.Error())
+		return fmt.Errorf("kill process: %s", err.Error())
 	}
 
 	return nil
 }
 
-func Status() error {
+func Status() (int, error) {
 	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return 0, fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return 0, nil
 	}
 
-	fmt.Println("cyber-core is running, pid:", pid)
-	return nil
+	return pid, nil
 }
 
 //func CheckUpdate() {
@@ -499,24 +514,27 @@ type ConfigRestfulResponse struct {
 func GetConfigs() (*ConfigRestfulResponse, error) {
 	externalController, err := getExternalController()
 	if err != nil {
-		return nil, fmt.Errorf("get external controller error: %s", err.Error())
+		return nil, fmt.Errorf("get external controller: %s", err.Error())
 	}
 	resp, err := http.Get(fmt.Sprintf("http://%s/configs", externalController))
 	if err != nil {
-		return nil, fmt.Errorf("get configs error: %s", err.Error())
+		if strings.Contains(err.Error(), "connection refused") {
+			return nil, fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return nil, fmt.Errorf("get configs: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read body error: %s", err.Error())
+		return nil, fmt.Errorf("read body: %s", err.Error())
 	}
 
 	var configs ConfigRestfulResponse
 	err = yaml.Unmarshal(body, &configs)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal body error: %s", err.Error())
+		return nil, fmt.Errorf("unmarshal body: %s", err.Error())
 	}
 
 	return &configs, nil
@@ -541,16 +559,16 @@ func getSelector() (string, error) {
 func ChangeNode(nodeName string) error {
 	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return ErrNotRunning
 	}
 
 	nodes, _, err := getNodes()
 	if err != nil {
-		return fmt.Errorf("get nodes error: %s", err.Error())
+		return fmt.Errorf("get nodes: %s", err.Error())
 	}
 
 	// 检查节点是否存在
@@ -567,28 +585,31 @@ func ChangeNode(nodeName string) error {
 
 	externalController, err := getExternalController()
 	if err != nil {
-		return fmt.Errorf("get external controller error: %s", err.Error())
+		return fmt.Errorf("get external controller: %s", err.Error())
 	}
 
 	selector, err := getSelector()
 	if err != nil {
-		return fmt.Errorf("get selector error: %s", err.Error())
+		return fmt.Errorf("get selector: %s", err.Error())
 	}
 	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/proxies/%s", externalController, selector), nil)
 	if err != nil {
-		return fmt.Errorf("new request error: %s", err.Error())
+		if strings.Contains(err.Error(), "connection refused") {
+			return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return fmt.Errorf("new request: %s", err.Error())
 	}
 
 	req.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{"name": "%s"}`, nodeName)))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("do request error: %s", err.Error())
+		return fmt.Errorf("do request: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("change node error: %s", resp.Status)
+		return fmt.Errorf("change node: %s", resp.Status)
 	}
 	return nil
 }
@@ -596,21 +617,24 @@ func ChangeNode(nodeName string) error {
 func ChangeMode(mode string) error {
 	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return ErrNotRunning
 	}
 
 	externalController, err := getExternalController()
 	if err != nil {
-		return fmt.Errorf("get external controller error: %s", err.Error())
+		return fmt.Errorf("get external controller: %s", err.Error())
 	}
 
 	req, err := http.NewRequest("PATCH", fmt.Sprintf("http://%s/configs", externalController), nil)
 	if err != nil {
-		return fmt.Errorf("new request error: %s", err.Error())
+		if strings.Contains(err.Error(), "connection refused") {
+			return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return fmt.Errorf("new request: %s", err.Error())
 	}
 
 	if mode != "global" && mode != "rule" {
@@ -620,13 +644,13 @@ func ChangeMode(mode string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("do request error: %s", err.Error())
+		return fmt.Errorf("do request: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("change mode error: %s", resp.Status)
+		return fmt.Errorf("change mode: %s", resp.Status)
 	}
 
 	return nil
@@ -640,53 +664,64 @@ type DelayTestResponse struct {
 func BenchmarkNode() error {
 	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return ErrNotRunning
 	}
 
 	externalController, err := getExternalController()
 	if err != nil {
-		return fmt.Errorf("get external controller error: %s", err.Error())
+		return fmt.Errorf("get external controller: %s", err.Error())
 	}
 
 	nodes, _, err := getNodes()
 	if err != nil {
-		return fmt.Errorf("get nodes error: %s", err.Error())
+		return fmt.Errorf("get nodes: %s", err.Error())
 	}
 
 	for _, node := range nodes {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s/delay?timeout=%d&url=%s", externalController, node.Name, 3000, "http://www.gstatic.com/generate_204"), nil)
 		if err != nil {
-			return fmt.Errorf("new request error: %s", err.Error())
+			if strings.Contains(err.Error(), "connection refused") {
+				return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			}
+			return fmt.Errorf("new request: %s", err.Error())
 		}
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("do request error: %s", err.Error())
+			return fmt.Errorf("do request: %s", err.Error())
 		}
 		//goland:noinspection GoUnhandledErrorResult
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("read response body error: %s", err.Error())
+			return fmt.Errorf("read response body: %s", err.Error())
 		}
 
 		var delayTestResponse DelayTestResponse
 		err = json.Unmarshal(body, &delayTestResponse)
 		if err != nil {
-			return fmt.Errorf("unmarshal response body error: %s", err.Error())
+			return fmt.Errorf("unmarshal response body: %s", err.Error())
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			fmt.Printf("*** benchmark node %s, status: %s, message: %s\n", node.Name, resp.Status, delayTestResponse.Message)
+			if app.Language() == "zh" {
+				fmt.Printf("*** 正在测试节点 %s, 状态: %s, 信息: %s\n", node.Name, resp.Status, delayTestResponse.Message)
+			} else {
+				fmt.Printf("*** Benchmarking node %s, status: %s, message: %s\n", node.Name, resp.Status, delayTestResponse.Message)
+			}
 			continue
 		}
 
-		fmt.Printf("benchmark node %s, status: %s, delay: %d\n", node.Name, resp.Status, delayTestResponse.Delay)
+		if app.Language() == "zh" {
+			fmt.Printf("正在测试节点 %s, 状态: %s, 延迟: %d毫秒\n", node.Name, resp.Status, delayTestResponse.Delay)
+		} else {
+			fmt.Printf("Benchmarking node %s, status: %s, delay: %dms\n", node.Name, resp.Status, delayTestResponse.Delay)
+		}
 	}
 
 	return nil
@@ -720,20 +755,24 @@ type ProxyRestfulResponse struct {
 func ListNodes() error {
 	exist, _, _, err := checkUserProcess("cyber-core")
 	if err != nil {
-		return fmt.Errorf("check user process error: %s", err.Error())
+		return fmt.Errorf("check user process: %s", err.Error())
 	}
 
 	if !exist {
-		return fmt.Errorf("cyber-core is not running")
+		return ErrNotRunning
 	}
 
 	nodes, currentNode, err := getNodes()
 	if err != nil {
-		return fmt.Errorf("get nodes error: %s", err.Error())
+		return fmt.Errorf("get nodes: %s", err.Error())
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"当前选择", "节点名称", "节点类型", "延迟", "位置"})
+	if app.Language() == "zh" {
+		table.SetHeader([]string{"当前选择", "节点名称", "节点类型", "延迟", "位置"})
+	} else {
+		table.SetHeader([]string{"Current Selected", "Node Name", "Node Type", "Delay", "Location"})
+	}
 
 	for _, node := range nodes {
 		var data []string
@@ -747,7 +786,11 @@ func ListNodes() error {
 			table.Append(data)
 			continue
 		}
-		data = append(data, node.Name, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(node.Name))
+		if app.Language() == "zh" {
+			data = append(data, node.Name, node.Type, fmt.Sprintf("%d毫秒", node.Delay), getCountryCode(node.Name))
+		} else {
+			data = append(data, node.Name, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(node.Name))
+		}
 		table.Append(data)
 	}
 
@@ -760,51 +803,57 @@ func ListNodes() error {
 func getNodes() ([]Node, string, error) {
 	externalController, err := getExternalController()
 	if err != nil {
-		return nil, "", fmt.Errorf("get external controller error: %s", err.Error())
+		return nil, "", fmt.Errorf("get external controller: %s", err.Error())
 	}
 
 	selector, err := getSelector()
 	if err != nil {
-		return nil, "", fmt.Errorf("get selector error: %s", err.Error())
+		return nil, "", fmt.Errorf("get selector: %s", err.Error())
 	}
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, selector))
 	if err != nil {
-		return nil, "", fmt.Errorf("get proxies error: %s", err.Error())
+		if strings.Contains(err.Error(), "connection refused") {
+			return nil, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return nil, "", fmt.Errorf("get proxies: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("read body error: %s", err.Error())
+		return nil, "", fmt.Errorf("read body: %s", err.Error())
 	}
 
 	var proxies ProxySelectorResponse
 
 	err = json.Unmarshal(body, &proxies)
 	if err != nil {
-		return nil, "", fmt.Errorf("unmarshal body error: %s", err.Error())
+		return nil, "", fmt.Errorf("unmarshal body: %s", err.Error())
 	}
 
 	var nodes []Node
 	for _, nodeName := range proxies.All {
 		nodeResp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, nodeName))
 		if err != nil {
-			return nil, "", fmt.Errorf("get proxy error: %s", err.Error())
+			if strings.Contains(err.Error(), "connection refused") {
+				return nil, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			}
+			return nil, "", fmt.Errorf("get proxy: %s", err.Error())
 		}
 		//goland:noinspection GoUnhandledErrorResult
 		defer nodeResp.Body.Close()
 
 		nodeBody, err := io.ReadAll(nodeResp.Body)
 		if err != nil {
-			return nil, "", fmt.Errorf("read node body error: %s", err.Error())
+			return nil, "", fmt.Errorf("read node body: %s", err.Error())
 		}
 
 		var node ProxyRestfulResponse
 		err = json.Unmarshal(nodeBody, &node)
 		if err != nil {
-			return nil, "", fmt.Errorf("unmarshal node body error: %s", err.Error())
+			return nil, "", fmt.Errorf("unmarshal node body: %s", err.Error())
 		}
 
 		var delay int
@@ -826,7 +875,7 @@ func getNodes() ([]Node, string, error) {
 func getExternalController() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
-		return "", fmt.Errorf("get current user error: %s", err.Error())
+		return "", fmt.Errorf("get current user: %s", err.Error())
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
@@ -834,7 +883,10 @@ func getExternalController() (string, error) {
 	// 打开配置文件，解析yaml
 	configFile, err := os.Open(configFilePath)
 	if err != nil {
-		return "", fmt.Errorf("open config file error: %s", err.Error())
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("config file not found, login first using `cyber login` and download nodes using `cyber node download`")
+		}
+		return "", fmt.Errorf("open config file: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer configFile.Close()
@@ -842,7 +894,7 @@ func getExternalController() (string, error) {
 	config := make(map[any]any)
 	err = yaml.NewDecoder(configFile).Decode(&config)
 	if err != nil {
-		return "", fmt.Errorf("decode config file error: %s", err.Error())
+		return "", fmt.Errorf("decode config file: %s", err.Error())
 	}
 
 	externalController, ok := config["external-controller"]
@@ -855,5 +907,10 @@ func getExternalController() (string, error) {
 
 //goland:noinspection GoUnusedParameter
 func getCountryCode(nodeName string) string {
-	return "N/A"
+	countryCode, err := country.ParseCountry(nodeName)
+	if err != nil {
+		return "N/A"
+	}
+
+	return countryCode
 }

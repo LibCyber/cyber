@@ -56,7 +56,7 @@ func unsetYarnProxy(scheme string) error {
 	}
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("error setting %s proxy: %v", scheme, err)
+		return fmt.Errorf("setting %s proxy: %v", scheme, err)
 	}
 
 	return nil

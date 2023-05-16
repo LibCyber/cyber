@@ -40,7 +40,7 @@ func unsetGitProxy(scheme string) {
 	cmd := exec.Command("git", "config", "--global", "--unset", fmt.Sprintf("%s.proxy", scheme))
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("Error setting %s proxy: %v\n", scheme, err)
+		fmt.Printf("Setting %s proxy: %v\n", scheme, err)
 		return
 	}
 	fmt.Printf("Successfully unset %s proxy\n", scheme)

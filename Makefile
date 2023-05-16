@@ -1,4 +1,4 @@
-VERSION := v1.0.2
+VERSION := v1.0.3
 BINARY_NAME := cyber
 TARGETS := windows-amd64 windows-arm64 darwin-amd64 darwin-arm64 linux-amd64 linux-arm64
 

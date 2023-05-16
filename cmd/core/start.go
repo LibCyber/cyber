@@ -4,6 +4,7 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package core
 
 import (
+	"fmt"
 	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
@@ -16,10 +17,12 @@ var startCmd = &cobra.Command{
 	Long: `Start cyber core.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := core.Start()
+		pid, err := core.Start()
 		if err != nil {
-			util.PrintlnExit(err.Error())
+			util.PrintlnExit(err)
 		}
+
+		fmt.Printf("Started cyber-core with PID %d\n", pid)
 	},
 }
 
