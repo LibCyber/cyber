@@ -4,8 +4,7 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package tunnel
 
 import (
-	"fmt"
-
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,10 @@ var TunnelCmd = &cobra.Command{
 	Long: `Start/Stop tunnel.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("tunnel called")
+		err := cmd.Help()
+		if err != nil {
+			util.PrintlnExit(err)
+		}
 	},
 }
 

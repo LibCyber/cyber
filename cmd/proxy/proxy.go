@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"github.com/LibCyber/cyber/cmd/proxy/unset"
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,7 @@ var ProxyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
 		if err != nil {
-			return
+			util.PrintlnExit(err)
 		}
 	},
 }

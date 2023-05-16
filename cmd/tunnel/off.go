@@ -5,6 +5,8 @@ package tunnel
 
 import (
 	"fmt"
+	"github.com/LibCyber/cyber/internal/core"
+	"github.com/LibCyber/cyber/pkg/util"
 
 	"github.com/spf13/cobra"
 )
@@ -16,7 +18,12 @@ var offCmd = &cobra.Command{
 	Long: `Stop tunnel.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("off called")
+		err := core.DisableTun()
+		if err != nil {
+			util.PrintlnExit(err)
+		}
+
+		fmt.Println("Tunnel disabled")
 	},
 }
 

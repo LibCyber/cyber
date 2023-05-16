@@ -188,9 +188,15 @@ func (c *Client) saveCredential(token string) error {
 	config.AccessToken = base64.StdEncoding.EncodeToString([]byte(token))
 
 	configData, err = yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshalling config file: %v", err)
+	}
 
 	// base64编码后再写入文件
-	err = os.WriteFile(configFilePath, []byte(configData), fileMode)
+	err = os.WriteFile(configFilePath, configData, fileMode)
+	if err != nil {
+		return fmt.Errorf("writing config file: %v", err)
+	}
 
 	return nil
 }

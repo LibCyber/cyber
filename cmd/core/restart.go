@@ -17,12 +17,7 @@ var restartCmd = &cobra.Command{
 	Long: `Restart cyber core.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := core.Stop()
-		if err != nil && !core.IsNotRunning(err) {
-			util.PrintlnExit(err)
-		}
-
-		pid, err := core.Start()
+		pid, err := core.Restart()
 		if err != nil {
 			util.PrintlnExit(err)
 		}

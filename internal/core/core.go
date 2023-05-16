@@ -26,6 +26,11 @@ var (
 	ErrNotRunning = fmt.Errorf("cyber-core is not running")
 )
 
+const (
+	AUTO_SELECT_PROXY_NAME = "自动选择"
+	FALLBACK_PROXY_NAME    = "故障转移"
+)
+
 func IsNotRunning(err error) bool {
 	return errors.Is(err, ErrNotRunning)
 }
@@ -434,6 +439,19 @@ func Stop() error {
 	return nil
 }
 
+func Restart() (int, error) {
+	err := Stop()
+	if err != nil && !IsNotRunning(err) {
+		return 0, fmt.Errorf("stop cyber-core: %s", err.Error())
+	}
+
+	pid, err := Start()
+	if err != nil {
+		return 0, fmt.Errorf("start cyber-core: %s", err.Error())
+	}
+	return pid, nil
+}
+
 func Status() (int, error) {
 	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
@@ -682,49 +700,59 @@ func BenchmarkNode() error {
 	}
 
 	for _, node := range nodes {
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s/delay?timeout=%d&url=%s", externalController, node.Name, 3000, "http://www.gstatic.com/generate_204"), nil)
+		var delayTestResponse *DelayTestResponse
+		delayTestResponse, statusCode, status, err := sendDelayTestRequest(externalController, node)
 		if err != nil {
-			if strings.Contains(err.Error(), "connection refused") {
-				return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
-			}
-			return fmt.Errorf("new request: %s", err.Error())
+			return fmt.Errorf("send delay test request: %s", err.Error())
 		}
 
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("do request: %s", err.Error())
-		}
-		//goland:noinspection GoUnhandledErrorResult
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("read response body: %s", err.Error())
-		}
-
-		var delayTestResponse DelayTestResponse
-		err = json.Unmarshal(body, &delayTestResponse)
-		if err != nil {
-			return fmt.Errorf("unmarshal response body: %s", err.Error())
-		}
-
-		if resp.StatusCode != http.StatusOK {
+		if statusCode != http.StatusOK {
 			if app.Language() == "zh" {
-				fmt.Printf("*** 正在测试节点 %s, 状态: %s, 信息: %s\n", node.Name, resp.Status, delayTestResponse.Message)
+				fmt.Printf("*** 正在测试节点 %s, 状态: %s, 信息: %s\n", node.Name, status, delayTestResponse.Message)
 			} else {
-				fmt.Printf("*** Benchmarking node %s, status: %s, message: %s\n", node.Name, resp.Status, delayTestResponse.Message)
+				fmt.Printf("*** Benchmarking node %s, status: %s, message: %s\n", node.Name, status, delayTestResponse.Message)
 			}
 			continue
 		}
 
 		if app.Language() == "zh" {
-			fmt.Printf("正在测试节点 %s, 状态: %s, 延迟: %d毫秒\n", node.Name, resp.Status, delayTestResponse.Delay)
+			fmt.Printf("正在测试节点 %s, 状态: %s, 延迟: %d毫秒\n", node.Name, status, delayTestResponse.Delay)
 		} else {
-			fmt.Printf("Benchmarking node %s, status: %s, delay: %dms\n", node.Name, resp.Status, delayTestResponse.Delay)
+			fmt.Printf("Benchmarking node %s, status: %s, delay: %dms\n", node.Name, status, delayTestResponse.Delay)
 		}
 	}
 
 	return nil
+}
+
+func sendDelayTestRequest(externalController string, node Node) (*DelayTestResponse, int, string, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s/delay?timeout=%d&url=%s", externalController, node.Name, 3000, "http://www.gstatic.com/generate_204"), nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return nil, 0, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return nil, 0, "", fmt.Errorf("new request: %s", err.Error())
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("do request: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("read response body: %s", err.Error())
+	}
+
+	var delayTestResponse DelayTestResponse
+	err = json.Unmarshal(body, &delayTestResponse)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("unmarshal response body: %s", err.Error())
+	}
+
+	return &delayTestResponse, resp.StatusCode, resp.Status, nil
 }
 
 type Node struct {
@@ -767,6 +795,16 @@ func ListNodes() error {
 		return fmt.Errorf("get nodes: %s", err.Error())
 	}
 
+	nodeOfAutoSelect, err := getAutoSelectNodeName()
+	if err != nil {
+		return fmt.Errorf("get auto select node name: %s", err.Error())
+	}
+
+	nodeOfFallback, err := getFallbackNodeName()
+	if err != nil {
+		return fmt.Errorf("get fallback node name: %s", err.Error())
+	}
+
 	table := tablewriter.NewWriter(os.Stdout)
 	if app.Language() == "zh" {
 		table.SetHeader([]string{"当前选择", "节点名称", "节点类型", "延迟", "位置"})
@@ -781,15 +819,22 @@ func ListNodes() error {
 		} else {
 			data = append(data, "")
 		}
+		nodeName := node.Name
+		if node.Name == AUTO_SELECT_PROXY_NAME {
+			nodeName = fmt.Sprintf("%s (%s)", node.Name, nodeOfAutoSelect)
+		} else if node.Name == FALLBACK_PROXY_NAME {
+			nodeName = fmt.Sprintf("%s (%s)", node.Name, nodeOfFallback)
+		}
 		if node.Delay == 0 {
-			data = append(data, node.Name, node.Type, "N/A", getCountryCode(node.Name))
+			data = append(data, nodeName, node.Type, "N/A", getCountryCode(node.Name))
 			table.Append(data)
 			continue
-		}
-		if app.Language() == "zh" {
-			data = append(data, node.Name, node.Type, fmt.Sprintf("%d毫秒", node.Delay), getCountryCode(node.Name))
 		} else {
-			data = append(data, node.Name, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(node.Name))
+			if app.Language() == "zh" {
+				data = append(data, nodeName, node.Type, fmt.Sprintf("%d毫秒", node.Delay), getCountryCode(node.Name))
+			} else {
+				data = append(data, nodeName, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(node.Name))
+			}
 		}
 		table.Append(data)
 	}
@@ -835,25 +880,10 @@ func getNodes() ([]Node, string, error) {
 
 	var nodes []Node
 	for _, nodeName := range proxies.All {
-		nodeResp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, nodeName))
+		var node *ProxyRestfulResponse
+		node, err = getProxy(externalController, nodeName)
 		if err != nil {
-			if strings.Contains(err.Error(), "connection refused") {
-				return nil, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
-			}
 			return nil, "", fmt.Errorf("get proxy: %s", err.Error())
-		}
-		//goland:noinspection GoUnhandledErrorResult
-		defer nodeResp.Body.Close()
-
-		nodeBody, err := io.ReadAll(nodeResp.Body)
-		if err != nil {
-			return nil, "", fmt.Errorf("read node body: %s", err.Error())
-		}
-
-		var node ProxyRestfulResponse
-		err = json.Unmarshal(nodeBody, &node)
-		if err != nil {
-			return nil, "", fmt.Errorf("unmarshal node body: %s", err.Error())
 		}
 
 		var delay int
@@ -870,6 +900,93 @@ func getNodes() ([]Node, string, error) {
 	}
 
 	return nodes, proxies.Now, nil
+}
+
+func getAutoSelectNodeName() (string, error) {
+	externalController, err := getExternalController()
+	if err != nil {
+		return "", fmt.Errorf("get external controller: %s", err.Error())
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, AUTO_SELECT_PROXY_NAME))
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return "", fmt.Errorf("get proxies: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read body: %s", err.Error())
+	}
+
+	var proxy ProxySelectorResponse
+
+	err = json.Unmarshal(body, &proxy)
+	if err != nil {
+		return "", fmt.Errorf("unmarshal body: %s", err.Error())
+	}
+
+	return proxy.Now, nil
+}
+
+func getFallbackNodeName() (string, error) {
+	externalController, err := getExternalController()
+	if err != nil {
+		return "", fmt.Errorf("get external controller: %s", err.Error())
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, FALLBACK_PROXY_NAME))
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return "", fmt.Errorf("get proxies: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read body: %s", err.Error())
+	}
+
+	var proxy ProxySelectorResponse
+
+	err = json.Unmarshal(body, &proxy)
+	if err != nil {
+		return "", fmt.Errorf("unmarshal body: %s", err.Error())
+	}
+
+	return proxy.Now, nil
+}
+
+func getProxy(externalController string, nodeName string) (*ProxyRestfulResponse, error) {
+	nodeResp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, nodeName))
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return nil, fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+		}
+		return nil, fmt.Errorf("get proxy: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer nodeResp.Body.Close()
+
+	nodeBody, err := io.ReadAll(nodeResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read node body: %s", err.Error())
+	}
+
+	var node ProxyRestfulResponse
+	err = json.Unmarshal(nodeBody, &node)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal node body: %s", err.Error())
+	}
+
+	return &node, nil
 }
 
 func getExternalController() (string, error) {

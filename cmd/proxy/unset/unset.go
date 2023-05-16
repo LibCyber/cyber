@@ -4,6 +4,7 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package unset
 
 import (
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +17,7 @@ var UnsetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
 		if err != nil {
-			return
+			util.PrintlnExit(err)
 		}
 	},
 }

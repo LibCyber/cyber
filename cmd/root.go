@@ -21,11 +21,9 @@ var rootCmd = &cobra.Command{
 	Long: `cyber is a command line client for LibCyber.
 
 TLDR, only 5 steps to liberate your cyber:
-  cyber login                1. Login to LibCyber
-  cyber core download        2. Download cyber-core from LibCyber
-  cyber node download        3. Download nodes from LibCyber
-  cyber core start           4. Start cyber-core
-  cyber proxy                5. Setup proxy for git, npm, etc. 
+  cyber login                1. Login to LibCyber.
+  cyber init                 2. Init cyber.
+  cyber proxy                3. Setup proxy for git, npm, etc. 
 
 Find more information at: https://docs.libcyber.org/docs/quan-xin-libcyber-ke-hu-duan/cli
 `,

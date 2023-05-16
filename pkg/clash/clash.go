@@ -34,6 +34,16 @@ type ClashRawConfig struct {
 	Proxy         []map[string]any          `yaml:"proxies"`
 	ProxyGroup    []map[string]any          `yaml:"proxy-groups"`
 	Rule          []string                  `yaml:"rules"`
+
+	Tun *TunConfig `yaml:"tun,omitempty"`
+}
+
+type TunConfig struct {
+	Enable              bool     `yaml:"enable"`
+	Stack               string   `yaml:"stack"`
+	AutoRoute           bool     `yaml:"auto-route"`
+	AutoDetectInterface bool     `yaml:"auto-detect-interface"`
+	DnsHijack           []string `yaml:"dns-hijack"`
 }
 
 func UnmarshalClashRawConfig(buf []byte) (*ClashRawConfig, error) {
@@ -74,6 +84,7 @@ func UnmarshalClashRawConfig(buf []byte) (*ClashRawConfig, error) {
 	return rawCfg, nil
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func CheckIfConfigValid(content string) bool {
 	_, err := UnmarshalClashRawConfig([]byte(content))
 	if err != nil {
