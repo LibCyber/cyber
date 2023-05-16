@@ -17,6 +17,7 @@ var onCmd = &cobra.Command{
 	Long: `Start tunnel.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Warning: The tunnel function is still in the experimental stage. If it causes network issues, you can turn off this function using `cyber tunnel off`.")
 		err := core.EnableTun()
 		if err != nil {
 			util.PrintlnExit(err)
