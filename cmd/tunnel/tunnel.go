@@ -11,8 +11,8 @@ import (
 // TunnelCmd represents the tunnel command
 var TunnelCmd = &cobra.Command{
 	Use:   "tunnel",
-	Short: "Start/Stop tunnel",
-	Long: `Start/Stop tunnel.
+	Short: "Start/Stop tunnel (Experimental)",
+	Long: `Start/Stop tunnel (Experimental).
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
