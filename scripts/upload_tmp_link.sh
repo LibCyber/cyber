@@ -14,6 +14,6 @@ do
   if [ -f "$file" ]
   then
     # 执行curl命令
-    curl -k -F "file=@$file" -F "token=$token" -F "model=99" -X POST "https://connect.tmp.link/api_v2/cli_uploader"
+    curl -k -F "file=@$file" -F "token=$token" -F "model=99" -F "mrid=646369abc972a" -X POST "https://connect.tmp.link/api_v2/cli_uploader"
   fi
 done

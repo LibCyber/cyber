@@ -33,3 +33,6 @@ build/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# environment
+.env
