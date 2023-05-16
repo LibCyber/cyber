@@ -826,14 +826,14 @@ func ListNodes() error {
 			nodeName = fmt.Sprintf("%s (%s)", node.Name, nodeOfFallback)
 		}
 		if node.Delay == 0 {
-			data = append(data, nodeName, node.Type, "N/A", getCountryCode(node.Name))
+			data = append(data, nodeName, node.Type, "N/A", getCountryCode(nodeName))
 			table.Append(data)
 			continue
 		} else {
 			if app.Language() == "zh" {
-				data = append(data, nodeName, node.Type, fmt.Sprintf("%d毫秒", node.Delay), getCountryCode(node.Name))
+				data = append(data, nodeName, node.Type, fmt.Sprintf("%d毫秒", node.Delay), getCountryCode(nodeName))
 			} else {
-				data = append(data, nodeName, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(node.Name))
+				data = append(data, nodeName, node.Type, fmt.Sprintf("%dms", node.Delay), getCountryCode(nodeName))
 			}
 		}
 		table.Append(data)
@@ -1030,4 +1030,75 @@ func getCountryCode(nodeName string) string {
 	}
 
 	return countryCode
+}
+
+func ShowLogFollow() error {
+	usr, err := user.Current()
+	if err != nil {
+		return fmt.Errorf("get current user: %s", err.Error())
+	}
+	coreOutLogPath := filepath.Join(usr.HomeDir, ".cyber", "core", "coreOut.log")
+
+	file, err := os.Open(coreOutLogPath)
+	if err != nil {
+		return fmt.Errorf("open coreOut.log: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer file.Close()
+
+	reader := io.NewSectionReader(file, 0, 1<<63-1)
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := reader.Read(buf)
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read coreOut.log: %s", err.Error())
+		}
+
+		if n > 0 {
+			fmt.Print(string(buf[:n]))
+		}
+
+		if err == io.EOF {
+			time.Sleep(time.Second) // 等待一秒后再次读取，以检测是否有新的数据
+			_, err := reader.Seek(0, io.SeekCurrent)
+			if err != nil {
+				return fmt.Errorf("seek coreOut.log: %s", err.Error())
+			} // 重置读取位置，继续读取新的数据
+		}
+	}
+}
+
+func ShowLog() error {
+	usr, err := user.Current()
+	if err != nil {
+		return fmt.Errorf("get current user: %s", err.Error())
+	}
+	coreOutLogPath := filepath.Join(usr.HomeDir, ".cyber", "core", "coreOut.log")
+
+	file, err := os.Open(coreOutLogPath)
+	if err != nil {
+		return fmt.Errorf("open coreOut.log: %s", err.Error())
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer file.Close()
+
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read coreOut.log: %s", err.Error())
+		}
+
+		if n > 0 {
+			fmt.Print(string(buf[:n]))
+		}
+
+		if err == io.EOF {
+			break
+		}
+	}
+
+	return nil
 }
