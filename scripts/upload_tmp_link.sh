@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 请求用户输入一个token值
-echo "请输入TmpLink密钥："
-read token
+echo -n "请输入TmpLink密钥："
+read -r token
 
 # 获取当前目录下的build文件夹下的所有文件名
 files=(./build/*)
