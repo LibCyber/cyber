@@ -8,6 +8,7 @@ import (
 	"github.com/LibCyber/cyber/cmd/mode"
 	"github.com/LibCyber/cyber/cmd/node"
 	"github.com/LibCyber/cyber/cmd/proxy"
+	"github.com/LibCyber/cyber/cmd/service"
 	"github.com/LibCyber/cyber/cmd/tunnel"
 	"os"
 
@@ -47,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(tunnel.TunnelCmd)
 	rootCmd.AddCommand(core.CoreCmd)
 	rootCmd.AddCommand(mode.ModeCmd)
+	rootCmd.AddCommand(service.ServiceCmd)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,

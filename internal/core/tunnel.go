@@ -7,12 +7,15 @@ import (
 	"github.com/LibCyber/cyber/pkg/util"
 	"gopkg.in/yaml.v3"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 var (
-	ErrNotAdmin = errors.New("current user is not admin")
+	ErrNotAdmin = errors.New("please run as admin or root, do not use sudo")
 )
 
 func EnableTun() error {
@@ -31,6 +34,14 @@ func EnableTun() error {
 	}
 
 	configFilePath := filepath.Join(home, ".cyber", "node", "config.yaml")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("getting service installed: %v", err)
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
+
 	fileInfo, err := os.Stat(configFilePath)
 	if err != nil {
 		return fmt.Errorf("getting config file info: %v", err)
@@ -78,7 +89,7 @@ func EnableTun() error {
 
 	_, err = Restart()
 	if err != nil {
-		return fmt.Errorf("restart cyber-core: %v", err)
+		return fmt.Errorf("restart cyber core: %v", err)
 	}
 
 	return nil
@@ -100,6 +111,14 @@ func DisableTun() error {
 	}
 
 	configFilePath := filepath.Join(home, ".cyber", "node", "config.yaml")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("getting service installed: %v", err)
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
+
 	fileInfo, err := os.Stat(configFilePath)
 	if err != nil {
 		return fmt.Errorf("getting config file info: %v", err)
@@ -136,13 +155,12 @@ func DisableTun() error {
 
 	_, err = Restart()
 	if err != nil {
-		return fmt.Errorf("restart cyber-core: %v", err)
+		return fmt.Errorf("restart cyber core: %v", err)
 	}
 
 	return nil
 }
 
-//goland:noinspection GoUnusedExportedFunction
 func IsTunEnabled() (bool, error) {
 	// 检查配置
 	home, err := os.UserHomeDir()
@@ -175,10 +193,23 @@ func IsTunEnabled() (bool, error) {
 		return false, nil
 	}
 
-	// 检查虚拟网卡tun是否存在
-	_, err = os.Stat("/dev/net/tun")
+	// 检查是否存在utun开头的虚拟网卡
+	interfaces, err := net.Interfaces()
 	if err != nil {
-		return false, nil
+		return false, fmt.Errorf("getting interfaces: %v", err)
+	}
+
+	tunText := ""
+	//goland:noinspection GoBoolExpressions
+	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+		tunText = "utun"
+	} else if runtime.GOOS == "windows" {
+		tunText = "Clash"
+	}
+	for _, iface := range interfaces {
+		if strings.Contains(iface.Name, tunText) {
+			return true, nil
+		}
 	}
 
 	return false, nil

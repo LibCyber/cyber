@@ -22,11 +22,11 @@ var statusCmd = &cobra.Command{
 			util.PrintlnExit(err)
 		}
 		if pid > 0 {
-			fmt.Println("cyber-core is running, pid:", pid)
+			fmt.Println("cyber core is running, pid:", pid)
 			return
 		}
 
-		fmt.Println("cyber-core is not running")
+		fmt.Println("cyber core is not running")
 	},
 }
 

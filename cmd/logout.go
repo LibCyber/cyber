@@ -18,7 +18,7 @@ var logoutCmd = &cobra.Command{
 	Long: `Logout from LibCyber.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Stopping cyber-core...")
+		fmt.Println("Stopping cyber core...")
 		err := core.Stop()
 		if err != nil {
 			util.PrintlnExit(err)

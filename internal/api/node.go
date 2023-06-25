@@ -1,8 +1,10 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"github.com/LibCyber/cyber/constant"
+	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/clash"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -17,6 +19,7 @@ func (c *Client) DownloadNodes() error {
 	info, err := c.GetUserInfo()
 	if err != nil {
 		// TODO get from local
+
 		return fmt.Errorf("getting user info: %v", err)
 	}
 
@@ -53,6 +56,14 @@ func (c *Client) DownloadNodes() error {
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	isServiceMode, err := core.IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("checking if service installed: %v", err)
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
+
 	// 检查文件是否存在，不存在则创建并写入，存在则替换 proxies 字段，去重合并rules字段
 	_, err = os.Stat(configFilePath)
 	if err != nil {
@@ -113,4 +124,31 @@ func (c *Client) DownloadNodes() error {
 	}
 
 	return nil
+}
+
+func (c *Client) IsNodeExists() (bool, error) {
+	usr, err := user.Current()
+	if err != nil {
+		fmt.Println("Getting current user:", err)
+		os.Exit(1)
+	}
+
+	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	isServiceMode, err := core.IsServiceInstalled()
+	if err != nil {
+		return false, fmt.Errorf("checking if service installed: %v", err)
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
+
+	// 检查文件是否存在，不存在则创建并写入，存在则替换 proxies 字段，去重合并rules字段
+	if _, err = os.Stat(configFilePath); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.New("stat core file: " + err.Error())
+	}
+
+	return true, nil
 }

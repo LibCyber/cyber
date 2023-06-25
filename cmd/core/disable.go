@@ -1,41 +1,38 @@
 /*
-Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
+Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
 package core
 
 import (
-	"fmt"
 	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
 )
 
-// startCmd represents the start command
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start cyber core",
-	Long: `Start cyber core.
+// disableCmd represents the disable command
+var disableCmd = &cobra.Command{
+	Use:   "disable",
+	Short: "Disable cyber core auto-start on boot",
+	Long: `Disable cyber core auto-start on boot.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		pid, err := core.Start()
+		err := core.DisableService()
 		if err != nil {
 			util.PrintlnExit(err)
 		}
-
-		fmt.Printf("Started cyber core with PID %d\n", pid)
 	},
 }
 
 func init() {
-	CoreCmd.AddCommand(startCmd)
+	CoreCmd.AddCommand(disableCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// startCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// disableCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// startCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// disableCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

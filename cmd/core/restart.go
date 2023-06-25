@@ -21,7 +21,7 @@ var restartCmd = &cobra.Command{
 		if err != nil {
 			util.PrintlnExit(err)
 		}
-		fmt.Printf("Restarted cyber-core with PID %d\n", pid)
+		fmt.Printf("Restarted cyber core with PID %d\n", pid)
 	},
 }
 

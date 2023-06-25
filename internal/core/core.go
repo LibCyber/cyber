@@ -2,11 +2,13 @@ package core
 
 import (
 	"archive/zip"
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/LibCyber/cyber/internal/app"
 	"github.com/LibCyber/cyber/pkg/country"
+	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -16,6 +18,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -23,13 +26,39 @@ import (
 )
 
 var (
-	ErrNotRunning = fmt.Errorf("cyber-core is not running")
+	ErrNotRunning = fmt.Errorf("cyber core is not running")
 )
 
 const (
 	AUTO_SELECT_PROXY_NAME = "自动选择"
 	FALLBACK_PROXY_NAME    = "故障转移"
 )
+
+func IsCoreInstalled() (bool, error) {
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return false, errors.New("check service installed: " + err.Error())
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false, errors.New("get user home dir: " + err.Error())
+	}
+
+	corePath := filepath.Join(homeDir, ".cyber", "core")
+	if isServiceMode {
+		corePath = filepath.Join("/usr", "bin", "cyber-core")
+	}
+
+	if _, err = os.Stat(corePath); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.New("stat core file: " + err.Error())
+	}
+
+	return true, nil
+}
 
 func IsNotRunning(err error) bool {
 	return errors.Is(err, ErrNotRunning)
@@ -75,9 +104,22 @@ func Download() error {
 	}
 
 	// 删除压缩包
-	err = os.Remove(filepath.Join(corePath, filename))
+	err = os.RemoveAll(filepath.Join(corePath, filename))
 	if err != nil {
 		return fmt.Errorf("remove core zip file: %s", err.Error())
+	}
+
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("check service installed: %s", err.Error())
+	}
+
+	if isServiceMode {
+		// copy ~/.cyber/core/cyber-core to /usr/bin/cyber-core
+		err = util.CopyFile(corePath, filepath.Join("/usr", "bin", "cyber-core"))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -155,6 +197,13 @@ func GetProxyPort() (int, int, error) {
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return 0, 0, fmt.Errorf("check service installed: %s", err.Error())
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
 
 	// 获取配置文件中的端口号
 	httpPort, socksPort, _, err := getPortInConfig(filepath.Join(configFilePath))
@@ -258,7 +307,7 @@ func Start() (int, error) {
 	}
 
 	if exist {
-		return 0, fmt.Errorf("cyber-core is already running, pid: %d", pid)
+		return 0, fmt.Errorf("cyber core is already running, pid: %d", pid)
 	}
 
 	usr, err := user.Current()
@@ -266,12 +315,29 @@ func Start() (int, error) {
 		return 0, fmt.Errorf("get current user: %s", err.Error())
 	}
 
-	corePath := filepath.Join(usr.HomeDir, ".cyber", "core")
-	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return 0, fmt.Errorf("check service installed: %s", err.Error())
+	}
 
-	// 检查cyber-core目录是否存在
-	if _, err = os.Stat(corePath); os.IsNotExist(err) {
-		return 0, fmt.Errorf("cyber-core is not installed, please install it first using `cyber core download`")
+	corePath := filepath.Join(usr.HomeDir, ".cyber", "core")
+	if isServiceMode {
+		corePath = filepath.Join("/usr", "bin", "cyber-core")
+	}
+	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
+
+	// check if cyber-core directory exists
+	if isServiceMode {
+		if _, err = os.Stat(corePath); os.IsNotExist(err) {
+			return 0, fmt.Errorf("cyber core is not installed, please install it first using `cyber core download` and install service again using `cyber core enable`")
+		}
+	} else {
+		if _, err = os.Stat(corePath); os.IsNotExist(err) {
+			return 0, fmt.Errorf("cyber core is not installed, please install it first using `cyber core download`")
+		}
 	}
 
 	// 获取配置文件中的端口号
@@ -314,37 +380,84 @@ func Start() (int, error) {
 		err = setPortInConfig(configFilePath, httpPort, socksPort, apiPort)
 	}
 
-	cmd := exec.Command(filepath.Join(corePath, "cyber-core"), "-d", corePath, "-f", configFilePath)
+	if isServiceMode {
+		// execute `systemctl start cyber-core`
+		cmd := exec.Command("systemctl", "start", "cyber-core")
+		err := cmd.Run()
+		if err != nil {
+			return 0, fmt.Errorf("start cyber core service: %s", err.Error())
+		}
 
-	// 创建日志文件，以覆写的方式打开
-	logFile, err := os.OpenFile(filepath.Join(corePath, "coreOut.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return 0, fmt.Errorf("failed to open log file: %v", err)
+		// get pid
+		cmd = exec.Command("systemctl", "show", "--property=MainPID", "cyber-core")
+		output, err := cmd.Output()
+		if err != nil {
+			return 0, fmt.Errorf("get cyber core service pid: %s", err.Error())
+		}
+
+		// parse pid
+		re := regexp.MustCompile(`MainPID=(\d+)`)
+		match := re.FindSubmatch(output)
+		if match == nil {
+			return 0, fmt.Errorf("parse cyber core service pid: %s", err.Error())
+		}
+
+		mainPid, err := strconv.Atoi(string(match[1]))
+		if err != nil {
+			return 0, fmt.Errorf("convert cyber core service pid: %s", err.Error())
+		}
+
+		pid = mainPid
+	} else {
+
+		cmd := exec.Command(filepath.Join(corePath, "cyber-core"), "-d", corePath, "-f", configFilePath)
+
+		// 创建日志文件，以覆写的方式打开
+		logFile, err := os.OpenFile(filepath.Join(corePath, "coreOut.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return 0, fmt.Errorf("failed to open log file: %v", err)
+		}
+		//goland:noinspection GoUnhandledErrorResult
+		defer logFile.Close()
+
+		errLogFile, err := os.OpenFile(filepath.Join(corePath, "coreErr.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return 0, fmt.Errorf("failed to open error log file: %v", err)
+		}
+		//goland:noinspection GoUnhandledErrorResult
+		defer errLogFile.Close()
+
+		// 重定向程序输出到日志文件
+		cmd.Stdout = logFile
+		cmd.Stderr = errLogFile
+
+		// 将进程分离到新的进程组，以避免终端信号影响子进程
+		cmd.SysProcAttr = procAttrWithNewProcessGroup()
+
+		// 启动子进程
+		err = cmd.Start()
+		if err != nil {
+			return 0, fmt.Errorf("failed to start core: %v", err)
+		}
+		pid = cmd.Process.Pid
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer logFile.Close()
 
-	errLogFile, err := os.OpenFile(filepath.Join(corePath, "coreErr.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return 0, fmt.Errorf("failed to open error log file: %v", err)
-	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer errLogFile.Close()
+	timeout := time.Second * 10
+	startTime := time.Now()
+	for {
+		if time.Now().Sub(startTime) > timeout {
+			return 0, fmt.Errorf("timeout")
+		}
 
-	// 重定向程序输出到日志文件
-	cmd.Stdout = logFile
-	cmd.Stderr = errLogFile
+		err = pingCore()
+		if err == nil {
+			break
+		}
 
-	// 将进程分离到新的进程组，以避免终端信号影响子进程
-	cmd.SysProcAttr = procAttrWithNewProcessGroup()
-
-	// 启动子进程
-	err = cmd.Start()
-	if err != nil {
-		return 0, fmt.Errorf("failed to start core: %v", err)
+		time.Sleep(time.Second)
 	}
 
-	return cmd.Process.Pid, nil
+	return pid, nil
 }
 
 //goland:noinspection GoUnusedFunction
@@ -424,16 +537,57 @@ func Stop() error {
 	}
 
 	if !exist {
-		return ErrNotRunning
+		return nil
 	}
 
 	//err = killProcessesByName(processName)
 	//if err != nil {
 	//	return err
 	//}
-	err = killProcessesByPid(pid)
+
+	// close all connections first
+	err = closeAllConnections()
 	if err != nil {
-		return fmt.Errorf("kill process: %s", err.Error())
+		return fmt.Errorf("close all connections: %s", err.Error())
+	}
+
+	time.Sleep(time.Second) // wait for connections to close
+
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("check service installed: %s", err.Error())
+	}
+
+	if isServiceMode {
+		cmd := exec.Command("systemctl", "stop", "cyber-core")
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("stop cyber core service: %s", err.Error())
+		}
+	} else {
+		err = killProcessesByPid(pid)
+		if err != nil {
+			return fmt.Errorf("kill process: %s", err.Error())
+		}
+	}
+
+	timeout := time.Second * 10
+	startTime := time.Now()
+	for {
+		exist, _, _, err = checkUserProcess("cyber-core")
+		if err != nil {
+			return fmt.Errorf("check user process: %s", err.Error())
+		}
+
+		if !exist {
+			break
+		}
+
+		if time.Now().Sub(startTime) > timeout {
+			return fmt.Errorf("timeout")
+		}
+
+		time.Sleep(time.Second)
 	}
 
 	return nil
@@ -442,16 +596,17 @@ func Stop() error {
 func Restart() (int, error) {
 	err := Stop()
 	if err != nil && !IsNotRunning(err) {
-		return 0, fmt.Errorf("stop cyber-core: %s", err.Error())
+		return 0, fmt.Errorf("stop cyber core: %s", err.Error())
 	}
 
 	pid, err := Start()
 	if err != nil {
-		return 0, fmt.Errorf("start cyber-core: %s", err.Error())
+		return 0, fmt.Errorf("start cyber core: %s", err.Error())
 	}
 	return pid, nil
 }
 
+// Status returns the pid of cyber core process if it is running, otherwise returns 0.
 func Status() (int, error) {
 	exist, pid, _, err := checkUserProcess("cyber-core")
 	if err != nil {
@@ -537,7 +692,7 @@ func GetConfigs() (*ConfigRestfulResponse, error) {
 	resp, err := http.Get(fmt.Sprintf("http://%s/configs", externalController))
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return nil, fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return nil, fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return nil, fmt.Errorf("get configs: %s", err.Error())
 	}
@@ -613,7 +768,7 @@ func ChangeNode(nodeName string) error {
 	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/proxies/%s", externalController, selector), nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
 	}
@@ -650,7 +805,7 @@ func ChangeMode(mode string) error {
 	req, err := http.NewRequest("PATCH", fmt.Sprintf("http://%s/configs", externalController), nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
 	}
@@ -725,11 +880,87 @@ func BenchmarkNode() error {
 	return nil
 }
 
+func closeAllConnections() error {
+	exist, _, _, err := checkUserProcess("cyber-core")
+	if err != nil {
+		return fmt.Errorf("check user process: %s", err.Error())
+	}
+
+	if !exist {
+		return ErrNotRunning
+	}
+
+	externalController, err := getExternalController()
+	if err != nil {
+		return fmt.Errorf("get external controller: %s", err.Error())
+	}
+
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://%s/connections", externalController), nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
+		}
+		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("do request: %s", err.Error())
+	}
+
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("close all connections: %s", resp.Status)
+	}
+
+	return nil
+}
+
+func pingCore() error {
+	exist, _, _, err := checkUserProcess("cyber-core")
+	if err != nil {
+		return fmt.Errorf("check user process: %s", err.Error())
+	}
+
+	if !exist {
+		return ErrNotRunning
+	}
+
+	externalController, err := getExternalController()
+	if err != nil {
+		return fmt.Errorf("get external controller: %s", err.Error())
+	}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s", externalController), nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") {
+			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
+		}
+		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("do request: %s", err.Error())
+	}
+
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ping core: %s", resp.Status)
+	}
+
+	return nil
+}
+
 func sendDelayTestRequest(externalController string, node Node) (*DelayTestResponse, int, string, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s/delay?timeout=%d&url=%s", externalController, node.Name, 3000, "http://www.gstatic.com/generate_204"), nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return nil, 0, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return nil, 0, "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return nil, 0, "", fmt.Errorf("new request: %s", err.Error())
 	}
@@ -859,7 +1090,7 @@ func getNodes() ([]Node, string, error) {
 	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, selector))
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return nil, "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return nil, "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return nil, "", fmt.Errorf("get proxies: %s", err.Error())
 	}
@@ -911,7 +1142,7 @@ func getAutoSelectNodeName() (string, error) {
 	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, AUTO_SELECT_PROXY_NAME))
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return "", fmt.Errorf("get proxies: %s", err.Error())
 	}
@@ -942,7 +1173,7 @@ func getFallbackNodeName() (string, error) {
 	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, FALLBACK_PROXY_NAME))
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return "", fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return "", fmt.Errorf("get proxies: %s", err.Error())
 	}
@@ -968,7 +1199,7 @@ func getProxy(externalController string, nodeName string) (*ProxyRestfulResponse
 	nodeResp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, nodeName))
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return nil, fmt.Errorf("cyber-core api endpoint is not available, please check if cyber-core is running")
+			return nil, fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return nil, fmt.Errorf("get proxy: %s", err.Error())
 	}
@@ -996,6 +1227,13 @@ func getExternalController() (string, error) {
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return "", fmt.Errorf("check if service is installed: %s", err.Error())
+	}
+	if isServiceMode {
+		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
+	}
 
 	// 打开配置文件，解析yaml
 	configFile, err := os.Open(configFilePath)
@@ -1038,6 +1276,38 @@ func ShowLogFollow() error {
 		return fmt.Errorf("get current user: %s", err.Error())
 	}
 	coreOutLogPath := filepath.Join(usr.HomeDir, ".cyber", "core", "coreOut.log")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("check service installed: %s", err.Error())
+	}
+
+	if isServiceMode {
+		// journalctl -u cyber-core -f
+		cmd := exec.Command("journalctl", "-u", "cyber-core", "-f")
+		// 获取输出对象，可以从该对象中读取输出结果
+		stdout, _ := cmd.StdoutPipe()
+		err := cmd.Start()
+		if err != nil {
+			return fmt.Errorf("start journalctl: %s", err.Error())
+		}
+
+		// 创建一个扫描器并扫描stdout
+		scanner := bufio.NewScanner(stdout)
+		scanner.Split(bufio.ScanLines)
+
+		// 循环打印扫描器扫描到的内容，直到扫描器停止
+		for scanner.Scan() {
+			m := scanner.Text()
+			fmt.Println(m)
+		}
+
+		err = cmd.Wait()
+		if err != nil {
+			return errors.New("journalctl exited unexpectedly")
+		}
+
+		return nil
+	}
 
 	file, err := os.Open(coreOutLogPath)
 	if err != nil {
@@ -1075,6 +1345,29 @@ func ShowLog() error {
 		return fmt.Errorf("get current user: %s", err.Error())
 	}
 	coreOutLogPath := filepath.Join(usr.HomeDir, ".cyber", "core", "coreOut.log")
+	isServiceMode, err := IsServiceInstalled()
+	if err != nil {
+		return fmt.Errorf("check service installed: %s", err.Error())
+	}
+
+	if isServiceMode {
+		// journalctl -u cyber-core
+		cmd := exec.Command("journalctl", "-u", "cyber-core")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		err := cmd.Start()
+		if err != nil {
+			return fmt.Errorf("start journalctl: %s", err.Error())
+		}
+
+		err = cmd.Wait()
+		if err != nil {
+			return errors.New("journalctl exited unexpectedly")
+		}
+
+		return nil
+	}
 
 	file, err := os.Open(coreOutLogPath)
 	if err != nil {
@@ -1099,6 +1392,41 @@ func ShowLog() error {
 			break
 		}
 	}
+
+	return nil
+}
+
+func EnableService() error {
+	//goland:noinspection GoBoolExpressions
+	if runtime.GOOS != "linux" {
+		return ErrNotLinux
+	}
+
+	// execute systemctl enable cyber-core and print output
+	cmd := exec.Command("systemctl", "enable", "cyber-core")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(string(output))
+	return nil
+}
+
+func DisableService() error {
+	//goland:noinspection GoBoolExpressions
+	if runtime.GOOS != "linux" {
+		return ErrNotLinux
+	}
+
+	// execute systemctl disable cyber-core
+	cmd := exec.Command("systemctl", "disable", "cyber-core")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(string(output))
 
 	return nil
 }

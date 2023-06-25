@@ -12,8 +12,8 @@ import (
 // logCmd represents the log command
 var logCmd = &cobra.Command{
 	Use:   "log",
-	Short: "Show log of cyber-core",
-	Long: `Show log of cyber-core.
+	Short: "Show log of cyber core",
+	Long: `Show log of cyber core.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		isFollow, err := cmd.Flags().GetBool("follow")

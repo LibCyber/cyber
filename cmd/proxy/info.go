@@ -24,9 +24,9 @@ var infoCmd = &cobra.Command{
 			util.PrintlnExit(err)
 		}
 		if app.Language() == "zh" {
-			fmt.Printf("当前 cyber-core 正在本机127.0.0.1，端口 %d 监听 http 代理，以及在端口 %d 监听 socks5 代理。\n", httpPort, socksPort)
+			fmt.Printf("当前 cyber内核 正在本机127.0.0.1，端口 %d 监听 http 代理，以及在端口 %d 监听 socks5 代理。\n", httpPort, socksPort)
 		} else {
-			fmt.Printf("The cyber-core is listening http proxy on port %d and socks5 proxy on port %d.\n", httpPort, socksPort)
+			fmt.Printf("The cyber core is listening http proxy on port %d and socks5 proxy on port %d.\n", httpPort, socksPort)
 		}
 	},
 }

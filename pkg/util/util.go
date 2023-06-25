@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -39,3 +40,35 @@ func IsAdmin() (bool, error) {
 		return strings.TrimSpace(string(output)) == "0", nil
 	}
 }
+
+func CopyFile(srcPath, destPath string) error {
+	srcFile, err := os.Open(srcPath) //打开源文件
+	if err != nil {
+		return err
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer srcFile.Close()
+
+	destFile, err := os.Create(destPath) //创建目标文件
+	if err != nil {
+		return err
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile) //复制文件
+	if err != nil {
+		return err
+	}
+
+	err = destFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//func Pointer2Bool(p bool) *bool {
+//	return &p
+//}

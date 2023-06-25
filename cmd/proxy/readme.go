@@ -24,7 +24,7 @@ var readmeCmd = &cobra.Command{
 		}
 
 		if app.Language() == "zh" {
-			fmt.Println("当前 cyber-core 正在端口", httpPort, "监听 http 代理，以及在端口", socksPort, "监听 socks5 代理。")
+			fmt.Println("当前 cyber内核 正在端口", httpPort, "监听 http 代理，以及在端口", socksPort, "监听 socks5 代理。")
 			fmt.Println("如果您希望在 python、telegram、steam、firefox 或其他应用程序中使用 http 代理或 socks 代理，请按照以下步骤手动设置代理。")
 			fmt.Println()
 
@@ -81,7 +81,7 @@ var readmeCmd = &cobra.Command{
 			fmt.Println("  6. 重启 Docker。")
 
 		} else {
-			fmt.Println("Currently cyber-core is listening on port", httpPort, "for http proxy, and port", socksPort, "for socks5 proxy.")
+			fmt.Println("Currently cyber core is listening on port", httpPort, "for http proxy, and port", socksPort, "for socks5 proxy.")
 			fmt.Println("If you want to use http proxy or socks proxy on python, telegram, steam, firefox or other applications, follow the steps below to set up proxy manually.")
 			fmt.Println()
 			fmt.Println("For http proxy:")

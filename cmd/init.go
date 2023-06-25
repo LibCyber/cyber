@@ -41,7 +41,7 @@ var initCmd = &cobra.Command{
 			util.PrintlnExit(err)
 		}
 
-		fmt.Printf("Started cyber-core with PID %d\n", pid)
+		fmt.Printf("Started cyber core with PID %d\n", pid)
 	},
 }
 

@@ -35,8 +35,7 @@ func extractLocalToken() string {
 	// 从家目录下的 .cyber/account/config.yaml 中读取 accessToken
 	usr, err := user.Current()
 	if err != nil {
-		fmt.Println("Getting current user:", err)
-		os.Exit(1)
+		return ""
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "account", "config.yaml")
@@ -118,4 +117,17 @@ func (c *Client) GetUserInfo() (UserProfile, error) {
 	}
 
 	return userProfile, nil
+}
+
+func (c *Client) IsTokenValid() bool {
+	if c.AccessToken == "" {
+		return false
+	}
+
+	_, err := c.GetUserInfo()
+	if err != nil {
+		return false
+	}
+
+	return true
 }
