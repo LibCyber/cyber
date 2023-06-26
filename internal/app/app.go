@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-func GetConfig() (*config.Config, error) {
+func GetCLIConfig() (*config.Config, error) {
 	// 检查是否有 ~/.cyber/config.json 目录，没有则创建
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -55,7 +55,7 @@ func GetConfig() (*config.Config, error) {
 
 func SetLanguage(language string) error {
 	// 获取配置
-	c, err := GetConfig()
+	c, err := GetCLIConfig()
 	if err != nil {
 		return fmt.Errorf("get config: %s", err.Error())
 	}
@@ -84,7 +84,7 @@ func SetLanguage(language string) error {
 
 func Language() string {
 	// 获取配置
-	c, err := GetConfig()
+	c, err := GetCLIConfig()
 	if err != nil {
 		return "en"
 	}

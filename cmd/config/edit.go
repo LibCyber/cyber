@@ -1,23 +1,22 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package core
+package config
 
 import (
 	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/util"
-
 	"github.com/spf13/cobra"
 )
 
-// enableCmd represents the enable command
-var enableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Enable cyber core auto-start on boot",
-	Long: `Enable cyber core auto-start on boot.
+// editCmd represents the edit command
+var editCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Edit cyber core and nodes config",
+	Long: `Edit cyber core and nodes config.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := core.EnableService()
+		err := core.EditNodeConfigWithVi()
 		if err != nil {
 			util.PrintlnExit(err)
 		}
@@ -25,5 +24,5 @@ var enableCmd = &cobra.Command{
 }
 
 func init() {
-	CoreCmd.AddCommand(enableCmd)
+	ConfigCmd.AddCommand(editCmd)
 }

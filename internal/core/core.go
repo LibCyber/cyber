@@ -2,7 +2,6 @@ package core
 
 import (
 	"archive/zip"
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -685,11 +684,20 @@ type ConfigRestfulResponse struct {
 }
 
 func GetConfigs() (*ConfigRestfulResponse, error) {
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return nil, fmt.Errorf("get external controller: %s", err.Error())
 	}
-	resp, err := http.Get(fmt.Sprintf("http://%s/configs", externalController))
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/configs", externalController), nil)
+	if err != nil {
+		return nil, fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return nil, fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
@@ -756,7 +764,7 @@ func ChangeNode(nodeName string) error {
 		return fmt.Errorf("node %s not exist", nodeName)
 	}
 
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -771,6 +779,10 @@ func ChangeNode(nodeName string) error {
 			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 	}
 
 	req.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{"name": "%s"}`, nodeName)))
@@ -797,7 +809,7 @@ func ChangeMode(mode string) error {
 		return ErrNotRunning
 	}
 
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -808,6 +820,10 @@ func ChangeMode(mode string) error {
 			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 	}
 
 	if mode != "global" && mode != "rule" {
@@ -844,7 +860,7 @@ func BenchmarkNode() error {
 		return ErrNotRunning
 	}
 
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -856,7 +872,7 @@ func BenchmarkNode() error {
 
 	for _, node := range nodes {
 		var delayTestResponse *DelayTestResponse
-		delayTestResponse, statusCode, status, err := sendDelayTestRequest(externalController, node)
+		delayTestResponse, statusCode, status, err := sendDelayTestRequest(externalController, isSecAPI, secret, node)
 		if err != nil {
 			return fmt.Errorf("send delay test request: %s", err.Error())
 		}
@@ -890,7 +906,7 @@ func closeAllConnections() error {
 		return ErrNotRunning
 	}
 
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -901,6 +917,10 @@ func closeAllConnections() error {
 			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -928,7 +948,7 @@ func pingCore() error {
 		return ErrNotRunning
 	}
 
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -939,6 +959,10 @@ func pingCore() error {
 			return fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -956,13 +980,17 @@ func pingCore() error {
 	return nil
 }
 
-func sendDelayTestRequest(externalController string, node Node) (*DelayTestResponse, int, string, error) {
+func sendDelayTestRequest(externalController string, isSecAPI bool, secret string, node Node) (*DelayTestResponse, int, string, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s/delay?timeout=%d&url=%s", externalController, node.Name, 3000, "http://www.gstatic.com/generate_204"), nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return nil, 0, "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
 		}
 		return nil, 0, "", fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -1077,7 +1105,7 @@ func ListNodes() error {
 }
 
 func getNodes() ([]Node, string, error) {
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return nil, "", fmt.Errorf("get external controller: %s", err.Error())
 	}
@@ -1087,7 +1115,16 @@ func getNodes() ([]Node, string, error) {
 		return nil, "", fmt.Errorf("get selector: %s", err.Error())
 	}
 
-	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, selector))
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s", externalController, selector), nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return nil, "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
@@ -1134,12 +1171,21 @@ func getNodes() ([]Node, string, error) {
 }
 
 func getAutoSelectNodeName() (string, error) {
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return "", fmt.Errorf("get external controller: %s", err.Error())
 	}
 
-	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, AUTO_SELECT_PROXY_NAME))
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s", externalController, AUTO_SELECT_PROXY_NAME), nil)
+	if err != nil {
+		return "", fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
@@ -1165,12 +1211,21 @@ func getAutoSelectNodeName() (string, error) {
 }
 
 func getFallbackNodeName() (string, error) {
-	externalController, err := getExternalController()
+	externalController, isSecAPI, secret, err := getExternalController()
 	if err != nil {
 		return "", fmt.Errorf("get external controller: %s", err.Error())
 	}
 
-	resp, err := http.Get(fmt.Sprintf("http://%s/proxies/%s", externalController, FALLBACK_PROXY_NAME))
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/proxies/%s", externalController, FALLBACK_PROXY_NAME), nil)
+	if err != nil {
+		return "", fmt.Errorf("new request: %s", err.Error())
+	}
+
+	if isSecAPI {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return "", fmt.Errorf("cyber core api endpoint is not available, please check if cyber core is running")
@@ -1220,16 +1275,17 @@ func getProxy(externalController string, nodeName string) (*ProxyRestfulResponse
 	return &node, nil
 }
 
-func getExternalController() (string, error) {
+// 获取外部控制器地址，返回值：地址，是否开启API加密，API访问密钥，错误
+func getExternalController() (string, bool, string, error) {
 	usr, err := user.Current()
 	if err != nil {
-		return "", fmt.Errorf("get current user: %s", err.Error())
+		return "", false, "", fmt.Errorf("get current user: %s", err.Error())
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "node", "config.yaml")
 	isServiceMode, err := IsServiceInstalled()
 	if err != nil {
-		return "", fmt.Errorf("check if service is installed: %s", err.Error())
+		return "", false, "", fmt.Errorf("check if service is installed: %s", err.Error())
 	}
 	if isServiceMode {
 		configFilePath = filepath.Join("/etc", "cyber-core", "config.yaml")
@@ -1239,9 +1295,9 @@ func getExternalController() (string, error) {
 	configFile, err := os.Open(configFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("config file not found, login first using `cyber login` and download nodes using `cyber node download`")
+			return "", false, "", fmt.Errorf("config file not found, login first using `cyber login` and download nodes using `cyber node download`")
 		}
-		return "", fmt.Errorf("open config file: %s", err.Error())
+		return "", false, "", fmt.Errorf("open config file: %s", err.Error())
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer configFile.Close()
@@ -1249,15 +1305,20 @@ func getExternalController() (string, error) {
 	config := make(map[any]any)
 	err = yaml.NewDecoder(configFile).Decode(&config)
 	if err != nil {
-		return "", fmt.Errorf("decode config file: %s", err.Error())
+		return "", false, "", fmt.Errorf("decode config file: %s", err.Error())
 	}
 
 	externalController, ok := config["external-controller"]
 	if !ok {
-		return "", fmt.Errorf("external-controller not found")
+		return "", false, "", fmt.Errorf("external-controller not found")
 	}
 
-	return externalController.(string), nil
+	haveSecret, ok := config["secret"]
+	if !ok {
+		return externalController.(string), false, "", nil
+	}
+
+	return externalController.(string), true, haveSecret.(string), nil
 }
 
 //goland:noinspection GoUnusedParameter
@@ -1284,26 +1345,14 @@ func ShowLogFollow() error {
 	if isServiceMode {
 		// journalctl -u cyber-core -f
 		cmd := exec.Command("journalctl", "-u", "cyber-core", "-f")
-		// 获取输出对象，可以从该对象中读取输出结果
-		stdout, _ := cmd.StdoutPipe()
-		err := cmd.Start()
+
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		err = cmd.Run()
 		if err != nil {
-			return fmt.Errorf("start journalctl: %s", err.Error())
-		}
-
-		// 创建一个扫描器并扫描stdout
-		scanner := bufio.NewScanner(stdout)
-		scanner.Split(bufio.ScanLines)
-
-		// 循环打印扫描器扫描到的内容，直到扫描器停止
-		for scanner.Scan() {
-			m := scanner.Text()
-			fmt.Println(m)
-		}
-
-		err = cmd.Wait()
-		if err != nil {
-			return errors.New("journalctl exited unexpectedly")
+			return fmt.Errorf("run journalctl: %s", err.Error())
 		}
 
 		return nil
@@ -1356,14 +1405,10 @@ func ShowLog() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		err := cmd.Start()
-		if err != nil {
-			return fmt.Errorf("start journalctl: %s", err.Error())
-		}
 
-		err = cmd.Wait()
+		err := cmd.Run()
 		if err != nil {
-			return errors.New("journalctl exited unexpectedly")
+			return fmt.Errorf("run journalctl: %s", err.Error())
 		}
 
 		return nil

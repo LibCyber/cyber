@@ -3,10 +3,12 @@ package util
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func PrintlnExit(args ...interface{}) {
@@ -72,3 +74,22 @@ func CopyFile(srcPath, destPath string) error {
 //func Pointer2Bool(p bool) *bool {
 //	return &p
 //}
+
+func MakeRandStr(length int, isNumber bool) string {
+	var chars string
+	// 密码字符集，可任意添加你需要的字符
+	if isNumber {
+		chars = "0123456789"
+	} else {
+		//chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
+		chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	}
+
+	char := ""
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < length; i++ {
+		char += string(chars[rand.Intn(len(chars))])
+	}
+
+	return char
+}

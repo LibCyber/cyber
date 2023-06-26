@@ -4,6 +4,7 @@ Copyright © 2023 LibCyber Team libcyberstudio@gmail.com
 package cmd
 
 import (
+	"github.com/LibCyber/cyber/cmd/config"
 	"github.com/LibCyber/cyber/cmd/core"
 	"github.com/LibCyber/cyber/cmd/mode"
 	"github.com/LibCyber/cyber/cmd/node"
@@ -49,6 +50,7 @@ func init() {
 	rootCmd.AddCommand(core.CoreCmd)
 	rootCmd.AddCommand(mode.ModeCmd)
 	rootCmd.AddCommand(service.ServiceCmd)
+	rootCmd.AddCommand(config.ConfigCmd)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,

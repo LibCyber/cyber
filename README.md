@@ -15,8 +15,9 @@ cyber --help
 ## TLDR
 ```bash
 cyber login
-cyber core download
-cyber node download
-cyber core start
-cyber proxy
+cyber init
+cyber proxy readme
+
+# use tunnel to forward all traffic
+cyber tunnel on
 ```

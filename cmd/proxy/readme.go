@@ -79,6 +79,12 @@ var readmeCmd = &cobra.Command{
 			fmt.Println("     localhost,127.0.0.0/8 用于绕过代理。")
 			fmt.Println("  5. 保存设置。")
 			fmt.Println("  6. 重启 Docker。")
+			fmt.Println()
+			fmt.Println()
+			fmt.Println("如果你不想这么麻烦，你可以运行以下命令自动设置全局TUN代理（实验性）：")
+			fmt.Println("cyber tunnel on")
+			fmt.Println("记住，如果出现网络问题，运行以下命令关闭TUN代理：")
+			fmt.Println("cyber tunnel off")
 
 		} else {
 			fmt.Println("Currently cyber core is listening on port", httpPort, "for http proxy, and port", socksPort, "for socks5 proxy.")
@@ -134,6 +140,12 @@ var readmeCmd = &cobra.Command{
 			fmt.Println("     localhost,127.0.0.0/8 for bypass proxy.")
 			fmt.Println("  5. Save the settings.")
 			fmt.Println("  6. Restart docker.")
+			fmt.Println()
+			fmt.Println()
+			fmt.Println("If you just want to keep it simple, you can run the following command to automatically set the global TUN proxy (experimental):")
+			fmt.Println("cyber tunnel on")
+			fmt.Println("Remember, in case of network problems, run the following command to turn off the TUN proxy:")
+			fmt.Println("cyber tunnel off")
 		}
 
 	},
@@ -141,14 +153,4 @@ var readmeCmd = &cobra.Command{
 
 func init() {
 	ProxyCmd.AddCommand(readmeCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// gitCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// gitCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

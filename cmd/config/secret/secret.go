@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package service
+package secret
 
 import (
 	"github.com/LibCyber/cyber/pkg/util"
@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ServiceCmd represents the service command
-var ServiceCmd = &cobra.Command{
-	Use:   "service",
-	Short: "Manage service",
-	Long: `Manage service.
+// SecretCmd represents the secret command
+var SecretCmd = &cobra.Command{
+	Use:   "secret",
+	Short: "Manage API endpoint secret",
+	Long: `Manage API endpoint secret.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()

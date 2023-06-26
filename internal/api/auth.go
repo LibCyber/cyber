@@ -149,8 +149,7 @@ func (c *Client) saveCredential(token string) error {
 	// 保存到家目录下的 .cyber/account/config.yaml 中的 accessToken 字段，注意保留文件原来的权限，如果文件不存在，则创建
 	usr, err := user.Current()
 	if err != nil {
-		fmt.Println("Getting current user:", err)
-		os.Exit(1)
+		return errors.New("getting current user")
 	}
 
 	configFilePath := filepath.Join(usr.HomeDir, ".cyber", "account", "config.yaml")

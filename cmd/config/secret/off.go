@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package core
+package secret
 
 import (
 	"github.com/LibCyber/cyber/internal/core"
@@ -10,14 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// enableCmd represents the enable command
-var enableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Enable cyber core auto-start on boot",
-	Long: `Enable cyber core auto-start on boot.
+// offCmd represents the off command
+var offCmd = &cobra.Command{
+	Use:   "off",
+	Short: "Turn off API endpoint secret",
+	Long: `Turn off API endpoint secret.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := core.EnableService()
+		err := core.ModifyAPISecret(false, "")
 		if err != nil {
 			util.PrintlnExit(err)
 		}
@@ -25,5 +25,5 @@ var enableCmd = &cobra.Command{
 }
 
 func init() {
-	CoreCmd.AddCommand(enableCmd)
+	SecretCmd.AddCommand(offCmd)
 }

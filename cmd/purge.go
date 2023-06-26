@@ -4,11 +4,14 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/LibCyber/cyber/internal/api"
 	"github.com/LibCyber/cyber/internal/core"
 	"github.com/LibCyber/cyber/pkg/util"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
 // purgeCmd represents the purge command
@@ -18,9 +21,27 @@ var purgeCmd = &cobra.Command{
 	Long: `Remove all data of cyber.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		isForce, err := cmd.Flags().GetBool("force")
+		if err != nil {
+			util.PrintlnExit(err)
+		}
+
+		if !isForce {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Are you sure to purge all data? (y/N): ")
+			text, err := reader.ReadString('\n')
+			if err != nil {
+				util.PrintlnExit(err)
+			}
+			text = strings.TrimSpace(text)
+			if text != "y" && text != "Y" {
+				return
+			}
+		}
+
 		// stop core
 		fmt.Println("Stopping cyber core...")
-		err := core.Stop()
+		err = core.Stop()
 		if err != nil {
 			util.PrintlnExit(err)
 		}
@@ -56,13 +77,5 @@ var purgeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(purgeCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// purgeCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// purgeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	purgeCmd.Flags().BoolP("force", "f", false, "Force purge without prompt")
 }
